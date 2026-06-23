@@ -68,10 +68,19 @@ struct PreferencesView: View {
 
                 DisclosureGroup("Advanced") {
                     VStack(alignment: .leading, spacing: 10) {
+                        Picker("Presentation", selection: $store.settings.presentationMode) {
+                            ForEach(PresentationMode.allCases, id: \.self) { mode in
+                                Text(mode.title).tag(mode)
+                            }
+                        }
+                        Text("Desktop Overlay floats over the screen. Menu Bar Game collapses Pong into the icon popover.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                         Toggle("Pass-through Overlay", isOn: $store.settings.passThrough)
                         Text("When enabled, clicks go to the apps underneath the game.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                        LabeledContent("Global Shortcut", value: GlobalShortcutController.shortcutDescription)
                         Toggle("Reduced Motion", isOn: $store.settings.reducedMotion)
                         Text("The system Reduce Motion setting is respected automatically too.")
                             .font(.caption)

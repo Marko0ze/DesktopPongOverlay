@@ -5,6 +5,7 @@ import SpriteKit
 final class OverlayWindowController: NSWindowController {
     private let settingsStore: SettingsStore
     private let inputMonitor: InputMonitor
+    private let haptics: HapticFeedbackController
     private(set) var scene: PongScene!
     private(set) var isOverlayVisible = false
 
@@ -12,9 +13,10 @@ final class OverlayWindowController: NSWindowController {
         window as! TransparentOverlayPanel
     }
 
-    init(settingsStore: SettingsStore, inputMonitor: InputMonitor) {
+    init(settingsStore: SettingsStore, inputMonitor: InputMonitor, haptics: HapticFeedbackController) {
         self.settingsStore = settingsStore
         self.inputMonitor = inputMonitor
+        self.haptics = haptics
 
         let screen = NSScreen.main ?? NSScreen.screens[0]
         let panel = TransparentOverlayPanel(
@@ -37,6 +39,7 @@ final class OverlayWindowController: NSWindowController {
 
         let scene = PongScene(size: skView.bounds.size, settingsStore: settingsStore, inputMonitor: inputMonitor)
         scene.screenOriginY = screen.frame.minY
+        scene.onImpact = { [weak haptics] in haptics?.impact() }
         skView.presentScene(scene)
         panel.contentView = skView
         self.scene = scene

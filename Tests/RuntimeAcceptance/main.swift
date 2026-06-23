@@ -31,7 +31,9 @@ private final class RuntimeAcceptanceDelegate: NSObject, NSApplicationDelegate {
     private var checks: [RuntimeCheck] = []
     private var settingsStore: SettingsStore!
     private var inputMonitor: InputMonitor!
+    private var haptics: HapticFeedbackController!
     private var overlayController: OverlayWindowController!
+    private var menuBarGameController: MenuBarGameController!
     private var preferencesController: PreferencesWindowController!
     private var aboutController: AboutWindowController!
     private var statusMenuController: StatusMenuController!
@@ -43,6 +45,7 @@ private final class RuntimeAcceptanceDelegate: NSObject, NSApplicationDelegate {
         defaults.removePersistentDomain(forName: suiteName)
 
         settingsStore = SettingsStore(defaults: defaults)
+        haptics = HapticFeedbackController()
         if ProcessInfo.processInfo.environment["DESKTOP_PONG_SETTINGS_ONLY"] == "1" {
             preferencesController = PreferencesWindowController(settingsStore: settingsStore, resetGame: {})
             preferencesController.present()
@@ -60,13 +63,22 @@ private final class RuntimeAcceptanceDelegate: NSObject, NSApplicationDelegate {
             passThroughProbeController = PassThroughProbeWindowController(reportPath: reportPath)
             passThroughProbeController.present()
             inputMonitor = InputMonitor()
-            overlayController = OverlayWindowController(settingsStore: settingsStore, inputMonitor: inputMonitor)
+            overlayController = OverlayWindowController(
+                settingsStore: settingsStore,
+                inputMonitor: inputMonitor,
+                haptics: haptics
+            )
             overlayController.showOverlay()
             return
         }
 
         inputMonitor = InputMonitor()
-        overlayController = OverlayWindowController(settingsStore: settingsStore, inputMonitor: inputMonitor)
+        overlayController = OverlayWindowController(
+            settingsStore: settingsStore,
+            inputMonitor: inputMonitor,
+            haptics: haptics
+        )
+        menuBarGameController = MenuBarGameController(settingsStore: settingsStore, haptics: haptics)
         preferencesController = PreferencesWindowController(
             settingsStore: settingsStore,
             resetGame: { [weak overlayController] in overlayController?.resetGame() }
@@ -74,9 +86,11 @@ private final class RuntimeAcceptanceDelegate: NSObject, NSApplicationDelegate {
         aboutController = AboutWindowController()
         statusMenuController = StatusMenuController(
             overlayController: overlayController,
+            menuBarGameController: menuBarGameController,
             settingsStore: settingsStore,
             preferencesController: preferencesController,
-            aboutController: aboutController
+            aboutController: aboutController,
+            haptics: haptics
         )
         overlayController.showOverlay()
 
@@ -166,6 +180,21 @@ private final class RuntimeAcceptanceDelegate: NSObject, NSApplicationDelegate {
         let difficultyActionSent = statusMenuController.performRuntimeMenuAction(titled: "Original-ish")
         record("difficulty update", settingsStore.settings.aiSkill == 0.95, "skill=\(settingsStore.settings.aiSkill)")
         record("status menu difficulty action", difficultyActionSent, "sent=\(difficultyActionSent)")
+
+        let miniGameActionSent = statusMenuController.performRuntimeMenuAction(titled: "Open Menu Bar Game")
+        let miniGame = menuBarGameController.runtimeSnapshot()
+        record(
+            "menu bar game opens",
+            miniGameActionSent && miniGame.isShown && miniGame.inputCapturing && !miniGame.scenePaused,
+            "sent=\(miniGameActionSent), shown=\(miniGame.isShown), input=\(miniGame.inputCapturing), paused=\(miniGame.scenePaused)"
+        )
+        let desktopPresentationSent = statusMenuController.performRuntimeMenuAction(titled: "Desktop Overlay")
+        RunLoop.current.run(until: Date().addingTimeInterval(0.15))
+        record(
+            "desktop overlay presentation restores",
+            desktopPresentationSent && overlayController.runtimeSnapshot().isVisible && !menuBarGameController.isShown,
+            "sent=\(desktopPresentationSent), overlay=\(overlayController.runtimeSnapshot().isVisible), mini=\(menuBarGameController.isShown)"
+        )
 
         overlayController.applyRuntimeTestSize(CGSize(width: 840, height: 560))
         let resized = overlayController.scene.runtimeSnapshot()

@@ -23,7 +23,10 @@ SWIFT_MODULE_CACHE_PATH="$MODULE_CACHE" \
   -Xfrontend -interface-compiler-version \
   -Xfrontend 6.3.2 \
   "$ROOT_DIR/Sources/DesktopPongOverlay/AuxiliaryWindowControllers.swift" \
+  "$ROOT_DIR/Sources/DesktopPongOverlay/GlobalShortcutController.swift" \
+  "$ROOT_DIR/Sources/DesktopPongOverlay/HapticFeedbackController.swift" \
   "$ROOT_DIR/Sources/DesktopPongOverlay/InputMonitor.swift" \
+  "$ROOT_DIR/Sources/DesktopPongOverlay/MenuBarGameController.swift" \
   "$ROOT_DIR/Sources/DesktopPongOverlay/OverlayWindowController.swift" \
   "$ROOT_DIR/Sources/DesktopPongOverlay/PongGameState.swift" \
   "$ROOT_DIR/Sources/DesktopPongOverlay/PongScene.swift" \

@@ -21,6 +21,7 @@ final class PongScene: SKScene {
     private var renderedImpactSequence = 0
     private(set) var isGamePaused = false
     var screenOriginY: CGFloat = 0
+    var onImpact: (() -> Void)?
 
     init(size: CGSize, settingsStore: SettingsStore, inputMonitor: InputMonitor) {
         self.settingsStore = settingsStore
@@ -238,6 +239,7 @@ final class PongScene: SKScene {
         let settings = settingsStore.settings
         let shouldReduceMotion = settings.reducedMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         guard !shouldReduceMotion, settings.impactPreset != .off else { return }
+        onImpact?()
 
         let paddle = gameState.lastImpactSide == .left ? leftPaddle : rightPaddle
         let amount = settings.impactPreset.scale

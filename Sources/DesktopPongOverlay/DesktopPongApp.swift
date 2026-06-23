@@ -7,7 +7,7 @@ enum DesktopPongApp {
         let application = NSApplication.shared
         let delegate = AppDelegate()
         application.delegate = delegate
-        application.setActivationPolicy(.regular)
+        application.setActivationPolicy(.accessory)
         application.run()
         withExtendedLifetime(delegate) {}
     }
@@ -17,15 +17,24 @@ enum DesktopPongApp {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsStore: SettingsStore!
     private var inputMonitor: InputMonitor!
+    private var haptics: HapticFeedbackController!
     private var overlayController: OverlayWindowController!
+    private var menuBarGameController: MenuBarGameController!
     private var preferencesController: PreferencesWindowController!
     private var aboutController: AboutWindowController!
     private var statusMenuController: StatusMenuController!
+    private var globalShortcutController: GlobalShortcutController!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         settingsStore = SettingsStore()
         inputMonitor = InputMonitor()
-        overlayController = OverlayWindowController(settingsStore: settingsStore, inputMonitor: inputMonitor)
+        haptics = HapticFeedbackController()
+        overlayController = OverlayWindowController(
+            settingsStore: settingsStore,
+            inputMonitor: inputMonitor,
+            haptics: haptics
+        )
+        menuBarGameController = MenuBarGameController(settingsStore: settingsStore, haptics: haptics)
         preferencesController = PreferencesWindowController(
             settingsStore: settingsStore,
             resetGame: { [weak overlayController] in overlayController?.resetGame() }
@@ -33,12 +42,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         aboutController = AboutWindowController()
         statusMenuController = StatusMenuController(
             overlayController: overlayController,
+            menuBarGameController: menuBarGameController,
             settingsStore: settingsStore,
             preferencesController: preferencesController,
-            aboutController: aboutController
+            aboutController: aboutController,
+            haptics: haptics
         )
+        globalShortcutController = GlobalShortcutController { [weak statusMenuController] in
+            statusMenuController?.toggleActiveSurface()
+        }
+        globalShortcutController.register()
         configureMainMenu()
-        overlayController.showOverlay()
+        if settingsStore.settings.presentationMode == .desktopOverlay {
+            overlayController.showOverlay()
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -63,6 +80,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let gameMenuItem = NSMenuItem()
         let gameMenu = NSMenu(title: "Game")
         gameMenu.addItem(commandItem("Show/Hide Overlay", action: #selector(toggleOverlay), key: "h"))
+        gameMenu.addItem(commandItem("Open/Close Menu Bar Game", action: #selector(toggleMenuBarGame), key: "m"))
         gameMenu.addItem(commandItem("Pause/Resume", action: #selector(togglePause), key: "p"))
         gameMenu.addItem(commandItem("Reset Score", action: #selector(resetScore), key: "r"))
         gameMenu.addItem(commandItem("Capture Input", action: #selector(toggleCapture), key: "i"))
@@ -80,7 +98,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func openSettings() { preferencesController.present() }
     @objc private func openAbout() { aboutController.present() }
     @objc private func toggleOverlay() { overlayController.toggleOverlay() }
-    @objc private func togglePause() { overlayController.togglePause() }
-    @objc private func resetScore() { overlayController.resetGame() }
+    @objc private func toggleMenuBarGame() {
+        let title = menuBarGameController.isShown ? "Close Menu Bar Game" : "Open Menu Bar Game"
+        statusMenuController.performRuntimeMenuAction(titled: title)
+    }
+    @objc private func togglePause() {
+        if menuBarGameController.isShown {
+            menuBarGameController.togglePause()
+        } else {
+            overlayController.togglePause()
+        }
+    }
+    @objc private func resetScore() {
+        overlayController.resetGame()
+        menuBarGameController.resetGame()
+    }
     @objc private func toggleCapture() { overlayController.toggleInputCapture() }
 }

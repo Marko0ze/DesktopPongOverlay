@@ -43,6 +43,18 @@ enum ImpactPreset: String, Codable, CaseIterable, Sendable {
     }
 }
 
+enum PresentationMode: String, Codable, CaseIterable, Sendable {
+    case desktopOverlay
+    case menuBarGame
+
+    var title: String {
+        switch self {
+        case .desktopOverlay: "Desktop Overlay"
+        case .menuBarGame: "Menu Bar Game"
+        }
+    }
+}
+
 struct RGBAColor: Codable, Equatable, Sendable {
     var red: Double
     var green: Double
@@ -81,6 +93,7 @@ struct RGBAColor: Codable, Equatable, Sendable {
 
 struct PongSettings: Codable, Equatable, Sendable {
     var mode: GameMode = .demo
+    var presentationMode: PresentationMode = .desktopOverlay
     var materialStyle: PongMaterialStyle = .glass
     var impactPreset: ImpactPreset = .subtle
     var playerPaddleColor: RGBAColor = .playerBlue

@@ -20,8 +20,9 @@ Native runtime acceptance harness:
 ./script/build_runtime_checks.sh
 ```
 
-The 🏓 menu-bar item controls the overlay. Pass-through is enabled by default, so apps underneath remain interactive.
-The v1 build keeps a Dock icon so Settings, About, and Command-Q use ordinary reliable macOS window behavior.
+The menu-bar item controls the app. Left-click it to toggle the active game surface; right-click or Control-click it for controls.
+Pass-through is enabled by default in Desktop Overlay mode, so apps underneath remain interactive.
+The app runs as a menu-bar utility with no Dock icon.
 
 The run script also applies a narrow compatibility flag for the Swift/SDK patch-version mismatch in the macOS 26.5.1 Command Line Tools currently installed on this machine. It can be removed after installing a matching Xcode 26 toolchain.
 The staged app contains both arm64 and x86_64 slices.
@@ -31,11 +32,15 @@ The staged app contains both arm64 and x86_64 slices.
 - Demo mode: AI plays both paddles.
 - Player vs AI: choose **Capture Input**, then move the mouse or use W/S.
 - Two Player: choose **Capture Input**; W/S controls the left paddle and Up/Down controls the right.
+- Presentation: choose **Desktop Overlay** for full-screen transparent Pong, or **Menu Bar Game** for a compact popover game from the menu-bar icon.
+- Global shortcut: Option-Command-P toggles the active game surface from anywhere.
+- In Menu Bar Game mode, click the popover to pause/resume.
 - Menu shortcuts: Command-H show/hide, Command-P pause/resume, Command-R reset, Command-I capture input, Command-, settings, Command-Q quit.
 
 ## Privacy
 
 The app does not record the screen, take screenshots, use the network, collect analytics, or install global input monitors. Keyboard and mouse events are read locally only while **Capture Input** is explicitly enabled.
+The global shortcut is registered with macOS as a hotkey; it does not inspect typed text.
 
 ## Packaging
 

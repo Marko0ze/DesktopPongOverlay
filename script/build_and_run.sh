@@ -70,6 +70,8 @@ cat >"$INFO_PLIST" <<PLIST
   <string>1</string>
   <key>LSMinimumSystemVersion</key>
   <string>$MIN_SYSTEM_VERSION</string>
+  <key>LSUIElement</key>
+  <true/>
   <key>NSHighResolutionCapable</key>
   <true/>
   <key>NSPrincipalClass</key>
@@ -81,7 +83,10 @@ PLIST
 /usr/bin/codesign --force --deep --options runtime --sign - "$APP_BUNDLE"
 
 open_app() {
-  /usr/bin/open -n "$APP_BUNDLE"
+  /usr/bin/open -n "$APP_BUNDLE" || {
+    sleep 0.5
+    /usr/bin/open -n "$APP_BUNDLE"
+  }
 }
 
 case "$MODE" in
