@@ -197,6 +197,39 @@ private func checkAIDifficultyChangesBehavior() {
     expect(hardReturns > easyReturns, "hard AI should return more representative shots than easy AI")
 }
 
+private func checkAIStableTargetMemory() {
+    var settings = PongSettings.default
+    settings.mode = .playerVsAI
+    settings.aiSkill = 0.15
+    settings.paddleHeight = 130
+
+    var state = PongGameState(playfieldSize: CGSize(width: 1_000, height: 700), settings: settings)
+    state.ballPosition = CGPoint(x: 500, y: 350)
+    state.ballVelocity = CGVector(dx: 420, dy: 0)
+
+    let randomValues = [1.0, 1.0, 0.0, 0.0]
+    var randomIndex = 0
+    var positions = [state.rightPaddleY]
+
+    for _ in 0 ..< 12 {
+        state.update(
+            deltaTime: 1.0 / 120.0,
+            input: InputSnapshot(),
+            settings: settings,
+            randomUnit: {
+                defer { randomIndex += 1 }
+                return randomValues[randomIndex % randomValues.count]
+            }
+        )
+        positions.append(state.rightPaddleY)
+    }
+
+    let deltas = zip(positions, positions.dropFirst()).map { $1 - $0 }
+    expect(positions.last! > positions.first!, "AI should move toward its stable target")
+    expect(deltas.allSatisfy { $0 >= -0.001 }, "AI should not reverse direction inside one target window")
+    expect(randomIndex == 2, "AI should only randomize once inside the short target window")
+}
+
 private func rightAIReturnsBall(skill: Double, verticalVelocity: CGFloat, randomUnit: Double) -> Bool {
     var settings = PongSettings.default
     settings.mode = .playerVsAI
@@ -261,6 +294,7 @@ checkResizeAndSettingsClamping()
 checkSpeedMapping()
 checkControlModes()
 checkAIDifficultyChangesBehavior()
+checkAIStableTargetMemory()
 checkSettingsPersistence()
 checkControlBindingConflicts()
 print("Core checks passed (\(checkCount) assertions)")

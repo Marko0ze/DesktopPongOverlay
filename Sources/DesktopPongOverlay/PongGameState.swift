@@ -12,6 +12,20 @@ struct InputSnapshot: Sendable {
     var mouseY: CGFloat?
 }
 
+private struct AIPaddleBrain: Sendable {
+    var hasTarget = false
+    var targetY: CGFloat = 0
+    var retargetTimer: CGFloat = 0
+    var wasIncoming = false
+
+    mutating func reset() {
+        hasTarget = false
+        targetY = 0
+        retargetTimer = 0
+        wasIncoming = false
+    }
+}
+
 struct PongGameState: Sendable {
     private(set) var playfieldSize: CGSize
     var ballPosition: CGPoint
@@ -22,6 +36,8 @@ struct PongGameState: Sendable {
     var rightScore = 0
     private(set) var impactSequence = 0
     private(set) var lastImpactSide: PaddleSide?
+    private var leftAI = AIPaddleBrain()
+    private var rightAI = AIPaddleBrain()
 
     init(playfieldSize: CGSize, settings: PongSettings = .default) {
         self.playfieldSize = playfieldSize
@@ -78,6 +94,7 @@ struct PongGameState: Sendable {
         let speed = Self.initialBallSpeed(for: settings.ballSpeed)
         let direction: CGFloat = towardRight ? 1 : -1
         ballVelocity = CGVector(dx: speed * direction, dy: speed * 0.32)
+        resetAITracking()
     }
 
     mutating func resize(to newSize: CGSize, settings: PongSettings) {
@@ -91,6 +108,7 @@ struct PongGameState: Sendable {
             rightPaddleY = rightPaddleY / oldSize.height * newSize.height
         }
         clampObjects(settings: settings)
+        resetAITracking()
     }
 
     private mutating func updatePaddles(
@@ -150,16 +168,72 @@ struct PongGameState: Sendable {
         } else {
             baseTarget = playfieldSize.height / 2 + (ballPosition.y - playfieldSize.height / 2) * 0.22
         }
-        let predictionError = CGFloat(randomUnit() * 2 - 1) * (1 - skill) * (90 + CGFloat(settings.paddleHeight) * 0.45)
-        let overshoot = CGFloat(randomUnit() * 2 - 1) * max(0, 0.55 - skill) * CGFloat(settings.paddleHeight)
-        let target = baseTarget + predictionError + overshoot
         let maxSpeed = 260 + skill * 760
         switch side {
         case .left:
-            leftPaddleY = moveToward(current: leftPaddleY, target: target, maxDelta: maxSpeed * dt)
+            let target = Self.stabilizedAITarget(
+                baseTarget: baseTarget,
+                ballIsIncoming: ballIsIncoming,
+                playfieldHeight: playfieldSize.height,
+                dt: dt,
+                settings: settings,
+                randomUnit: randomUnit,
+                brain: &leftAI
+            )
+            leftPaddleY = moveAIToward(current: leftPaddleY, target: target, maxSpeed: maxSpeed, skill: skill, dt: dt)
         case .right:
-            rightPaddleY = moveToward(current: rightPaddleY, target: target, maxDelta: maxSpeed * dt)
+            let target = Self.stabilizedAITarget(
+                baseTarget: baseTarget,
+                ballIsIncoming: ballIsIncoming,
+                playfieldHeight: playfieldSize.height,
+                dt: dt,
+                settings: settings,
+                randomUnit: randomUnit,
+                brain: &rightAI
+            )
+            rightPaddleY = moveAIToward(current: rightPaddleY, target: target, maxSpeed: maxSpeed, skill: skill, dt: dt)
         }
+    }
+
+    private static func stabilizedAITarget(
+        baseTarget: CGFloat,
+        ballIsIncoming: Bool,
+        playfieldHeight: CGFloat,
+        dt: CGFloat,
+        settings: PongSettings,
+        randomUnit: () -> Double,
+        brain: inout AIPaddleBrain
+    ) -> CGFloat {
+        let skill = CGFloat(settings.aiSkill)
+        brain.retargetTimer = max(0, brain.retargetTimer - dt)
+
+        if !brain.hasTarget || brain.wasIncoming != ballIsIncoming || brain.retargetTimer <= 0 {
+            let predictionError = ballIsIncoming
+                ? CGFloat(randomUnit() * 2 - 1) * (1 - skill) * (90 + CGFloat(settings.paddleHeight) * 0.45)
+                : 0
+            let overshoot = ballIsIncoming
+                ? CGFloat(randomUnit() * 2 - 1) * max(0, 0.55 - skill) * CGFloat(settings.paddleHeight)
+                : 0
+            let halfHeight = CGFloat(settings.paddleHeight / 2)
+            let range = halfHeight ... max(halfHeight, playfieldHeight - halfHeight)
+
+            brain.targetY = (baseTarget + predictionError + overshoot).clamped(to: range)
+            brain.hasTarget = true
+            brain.wasIncoming = ballIsIncoming
+            brain.retargetTimer = 0.40 - skill * 0.20
+        }
+
+        return brain.targetY
+    }
+
+    private func moveAIToward(current: CGFloat, target: CGFloat, maxSpeed: CGFloat, skill: CGFloat, dt: CGFloat) -> CGFloat {
+        let delta = target - current
+        let deadZone = 4 + (1 - skill) * 10
+        guard abs(delta) > deadZone else { return current }
+
+        let easedDelta = abs(delta) * (0.18 + skill * 0.16)
+        let maxDelta = min(maxSpeed * dt, easedDelta)
+        return current + delta.clamped(to: -maxDelta ... maxDelta)
     }
 
     private func predictedBallY(atX targetX: CGFloat) -> CGFloat {
@@ -225,6 +299,11 @@ struct PongGameState: Sendable {
         ballPosition.x = ballPosition.x.clamped(to: radius ... max(radius, playfieldSize.width - radius))
         ballPosition.y = ballPosition.y.clamped(to: radius ... max(radius, playfieldSize.height - radius))
         clampPaddles(settings: settings)
+    }
+
+    private mutating func resetAITracking() {
+        leftAI.reset()
+        rightAI.reset()
     }
 
     private mutating func clampPaddles(settings: PongSettings) {
