@@ -118,6 +118,15 @@ struct PreferencesView: View {
             .pickerStyle(.segmented)
             ColorPicker("Player Paddle", selection: colorBinding(\.playerPaddleColor))
             ColorPicker("AI Paddle", selection: colorBinding(\.aiPaddleColor))
+            Picker("Paddle Fill", selection: $store.settings.paddleGlassFill) {
+                ForEach(PaddleGlassFill.allCases, id: \.self) { fill in
+                    Text(fill.title).tag(fill)
+                }
+            }
+            .pickerStyle(.segmented)
+            Text("Transparent keeps the paddle body clear while the colour still drives the rim, glow, and impact highlight.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
             ColorPicker("Ball", selection: colorBinding(\.ballColor))
             ColorPicker("Score", selection: colorBinding(\.scoreColor))
             valueSlider("Object Opacity", value: $store.settings.objectOpacity, range: 0.2 ... 1, format: .percent)
@@ -551,23 +560,45 @@ private struct SettingsPreviewView: View {
         RoundedRectangle(cornerRadius: previewPaddleWidth * settings.paddleRoundness / 2)
             .fill(paddleFill(color: color))
             .overlay {
-                if settings.materialStyle != .clear {
+                if settings.materialStyle != .clear || settings.paddleGlassFill == .transparent {
                     RoundedRectangle(cornerRadius: previewPaddleWidth * settings.paddleRoundness / 2)
                         .stroke(
-                            .white.opacity(settings.materialStyle == .glass ? 0.72 : 0.30),
-                            lineWidth: 1
+                            paddleStroke(color: color),
+                            lineWidth: settings.paddleGlassFill == .transparent ? 1.2 : 1
                         )
                 }
             }
-            .shadow(color: Color(nsColor: color).opacity(settings.glowStrength), radius: settings.glowStrength * 10)
+            .overlay(alignment: .topLeading) {
+                if settings.materialStyle == .glass && settings.glassQuality != .performance {
+                    RoundedRectangle(cornerRadius: previewPaddleWidth * settings.paddleRoundness / 2)
+                        .fill(.white.opacity(settings.glassSpecularIntensity * 0.20))
+                        .frame(width: max(2, previewPaddleWidth * 0.35))
+                        .padding(.leading, previewPaddleWidth * 0.18)
+                        .padding(.vertical, previewPaddleHeight * 0.14)
+                        .allowsHitTesting(false)
+                }
+            }
+            .shadow(
+                color: Color(nsColor: color).opacity(settings.glowStrength * (settings.paddleGlassFill == .transparent ? 1.18 : 1)),
+                radius: settings.glowStrength * 10
+            )
     }
 
     private func paddleFill(color: NSColor) -> Color {
         let base = Color(nsColor: color)
+        let fillScale = settings.paddleGlassFill.fillAlphaScale
         return switch settings.materialStyle {
-        case .glass: base.opacity(settings.objectOpacity * 0.62)
-        case .clear: base.opacity(settings.objectOpacity)
-        case .frosted: base.opacity(settings.objectOpacity * 0.74)
+        case .glass: base.opacity(settings.objectOpacity * 0.62 * fillScale)
+        case .clear: base.opacity(settings.objectOpacity * fillScale)
+        case .frosted: base.opacity(settings.objectOpacity * 0.74 * fillScale)
+        }
+    }
+
+    private func paddleStroke(color: NSColor) -> Color {
+        if settings.paddleGlassFill == .transparent {
+            Color(nsColor: color).opacity(settings.objectOpacity * 0.82)
+        } else {
+            .white.opacity(settings.materialStyle == .glass ? 0.72 : 0.30)
         }
     }
 

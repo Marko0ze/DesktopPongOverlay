@@ -39,6 +39,25 @@ enum GlassQuality: String, Codable, CaseIterable, Sendable {
     }
 }
 
+enum PaddleGlassFill: String, Codable, CaseIterable, Sendable {
+    case tinted
+    case transparent
+
+    var title: String {
+        switch self {
+        case .tinted: "Tinted"
+        case .transparent: "Transparent"
+        }
+    }
+
+    var fillAlphaScale: Double {
+        switch self {
+        case .tinted: 1
+        case .transparent: 0
+        }
+    }
+}
+
 enum ImpactPreset: String, Codable, CaseIterable, Sendable {
     case off
     case subtle
@@ -183,6 +202,7 @@ struct PongSettings: Codable, Equatable, Sendable {
     var presentationMode: PresentationMode = .desktopOverlay
     var materialStyle: PongMaterialStyle = .glass
     var glassQuality: GlassQuality = .rich
+    var paddleGlassFill: PaddleGlassFill = .tinted
     var impactPreset: ImpactPreset = .subtle
     var playerControlMode: PlayerControlMode = .keyboardAndMouse
     var controlBindings: ControlBindings = .default
@@ -218,6 +238,7 @@ struct PongSettings: Codable, Equatable, Sendable {
         presentationMode = try container.decodeIfPresent(PresentationMode.self, forKey: .presentationMode) ?? defaults.presentationMode
         materialStyle = try container.decodeIfPresent(PongMaterialStyle.self, forKey: .materialStyle) ?? defaults.materialStyle
         glassQuality = try container.decodeIfPresent(GlassQuality.self, forKey: .glassQuality) ?? defaults.glassQuality
+        paddleGlassFill = try container.decodeIfPresent(PaddleGlassFill.self, forKey: .paddleGlassFill) ?? defaults.paddleGlassFill
         impactPreset = try container.decodeIfPresent(ImpactPreset.self, forKey: .impactPreset) ?? defaults.impactPreset
         playerControlMode = try container.decodeIfPresent(PlayerControlMode.self, forKey: .playerControlMode) ?? defaults.playerControlMode
         controlBindings = try container.decodeIfPresent(ControlBindings.self, forKey: .controlBindings) ?? defaults.controlBindings

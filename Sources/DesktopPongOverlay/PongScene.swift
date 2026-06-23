@@ -111,6 +111,8 @@ final class PongScene: SKScene {
             rightPaddleY: gameState.rightPaddleY,
             leftScore: gameState.leftScore,
             rightScore: gameState.rightScore,
+            leftPaddleFillAlpha: leftPaddle.fillColor.alphaComponent,
+            rightPaddleFillAlpha: rightPaddle.fillColor.alphaComponent,
             ballVisible: !ball.isHidden && ball.parent === self,
             paddlesVisible: !leftPaddle.isHidden && !rightPaddle.isHidden,
             liquidGlassRimVisible: settingsStore.settings.materialStyle == .glass && !ballRim.isHidden && !leftPaddleRim.isHidden,
@@ -208,8 +210,26 @@ final class PongScene: SKScene {
             transform: nil
         )
 
-        styleGlassObject(base: leftPaddle, rim: leftPaddleRim, specular: leftPaddleSpecular, color: settings.playerPaddleColor.nsColor, settings: settings)
-        styleGlassObject(base: rightPaddle, rim: rightPaddleRim, specular: rightPaddleSpecular, color: settings.aiPaddleColor.nsColor, settings: settings)
+        styleGlassObject(
+            base: leftPaddle,
+            rim: leftPaddleRim,
+            specular: leftPaddleSpecular,
+            color: settings.playerPaddleColor.nsColor,
+            settings: settings,
+            fillAlphaScale: CGFloat(settings.paddleGlassFill.fillAlphaScale),
+            rimColor: settings.playerPaddleColor.nsColor.blended(withFraction: 0.48, of: .white) ?? .white,
+            transparentOutlineBoost: settings.paddleGlassFill == .transparent
+        )
+        styleGlassObject(
+            base: rightPaddle,
+            rim: rightPaddleRim,
+            specular: rightPaddleSpecular,
+            color: settings.aiPaddleColor.nsColor,
+            settings: settings,
+            fillAlphaScale: CGFloat(settings.paddleGlassFill.fillAlphaScale),
+            rimColor: settings.aiPaddleColor.nsColor.blended(withFraction: 0.48, of: .white) ?? .white,
+            transparentOutlineBoost: settings.paddleGlassFill == .transparent
+        )
         styleGlassObject(base: ball, rim: ballRim, specular: ballSpecular, color: settings.ballColor.nsColor, settings: settings)
 
         leftScore.fontSize = 38
@@ -229,22 +249,33 @@ final class PongScene: SKScene {
         rebuildCenterLine()
     }
 
-    private func styleGlassObject(base: SKShapeNode, rim: SKShapeNode, specular: SKShapeNode, color: NSColor, settings: PongSettings) {
+    private func styleGlassObject(
+        base: SKShapeNode,
+        rim: SKShapeNode,
+        specular: SKShapeNode,
+        color: NSColor,
+        settings: PongSettings,
+        fillAlphaScale: CGFloat = 1,
+        rimColor: NSColor = .white,
+        transparentOutlineBoost: Bool = false
+    ) {
         let opacity = CGFloat(settings.objectOpacity)
         let qualityMultiplier = glassQualityMultiplier(settings.glassQuality)
         let rimAlpha = CGFloat(settings.glassRimIntensity) * opacity * qualityMultiplier
         let specularAlpha = CGFloat(settings.glassSpecularIntensity) * opacity * qualityMultiplier
         let depth = CGFloat(settings.glassDepth) * qualityMultiplier
+        let outlineAlpha = transparentOutlineBoost ? opacity * 0.72 : opacity * 0.35
+        let frostedOutlineAlpha = transparentOutlineBoost ? opacity * 0.80 : opacity * 0.5
         switch settings.materialStyle {
         case .glass:
-            base.fillColor = color.withAlphaComponent(opacity * (0.42 + depth * 0.22))
-            base.strokeColor = color.blended(withFraction: 0.40, of: .white)?.withAlphaComponent(opacity * 0.35) ?? color
-            base.lineWidth = 0.8
-            base.glowWidth = settings.glowStrength * (8 + depth * 10)
+            base.fillColor = color.withAlphaComponent(opacity * (0.42 + depth * 0.22) * fillAlphaScale)
+            base.strokeColor = color.blended(withFraction: 0.40, of: .white)?.withAlphaComponent(outlineAlpha) ?? color
+            base.lineWidth = transparentOutlineBoost ? 1.15 : 0.8
+            base.glowWidth = settings.glowStrength * (8 + depth * 10) * (transparentOutlineBoost ? 1.18 : 1)
             rim.fillColor = .clear
-            rim.strokeColor = NSColor.white.withAlphaComponent(rimAlpha)
-            rim.lineWidth = 1.4 + depth * 1.6
-            rim.glowWidth = settings.glowStrength * 4 * qualityMultiplier
+            rim.strokeColor = rimColor.withAlphaComponent(min(1, rimAlpha * (transparentOutlineBoost ? 1.16 : 1)))
+            rim.lineWidth = 1.4 + depth * 1.6 + (transparentOutlineBoost ? 0.35 : 0)
+            rim.glowWidth = settings.glowStrength * 4 * qualityMultiplier * (transparentOutlineBoost ? 1.25 : 1)
             specular.fillColor = NSColor.white.withAlphaComponent(specularAlpha * 0.75)
             specular.strokeColor = NSColor.white.withAlphaComponent(specularAlpha * 0.35)
             specular.lineWidth = 0.5
@@ -252,19 +283,19 @@ final class PongScene: SKScene {
             rim.isHidden = settings.glassQuality == .performance
             specular.isHidden = settings.glassQuality == .performance
         case .clear:
-            base.fillColor = color.withAlphaComponent(opacity)
-            base.strokeColor = .clear
-            base.lineWidth = 0
-            base.glowWidth = 0
+            base.fillColor = color.withAlphaComponent(opacity * fillAlphaScale)
+            base.strokeColor = transparentOutlineBoost ? color.withAlphaComponent(opacity * 0.82) : .clear
+            base.lineWidth = transparentOutlineBoost ? 1.1 : 0
+            base.glowWidth = transparentOutlineBoost ? settings.glowStrength * 5 : 0
             rim.isHidden = true
             specular.isHidden = true
         case .frosted:
-            base.fillColor = color.withAlphaComponent(opacity * (0.58 + depth * 0.12))
-            base.strokeColor = color.blended(withFraction: 0.55, of: .white)?.withAlphaComponent(opacity * 0.5) ?? color
-            base.lineWidth = 1
-            base.glowWidth = settings.glowStrength * (5 + depth * 5)
+            base.fillColor = color.withAlphaComponent(opacity * (0.58 + depth * 0.12) * fillAlphaScale)
+            base.strokeColor = color.blended(withFraction: 0.55, of: .white)?.withAlphaComponent(frostedOutlineAlpha) ?? color
+            base.lineWidth = transparentOutlineBoost ? 1.25 : 1
+            base.glowWidth = settings.glowStrength * (5 + depth * 5) * (transparentOutlineBoost ? 1.18 : 1)
             rim.fillColor = .clear
-            rim.strokeColor = NSColor.white.withAlphaComponent(rimAlpha * 0.45)
+            rim.strokeColor = rimColor.withAlphaComponent(rimAlpha * (transparentOutlineBoost ? 0.70 : 0.45))
             rim.lineWidth = 1
             rim.glowWidth = settings.glowStrength * 2
             specular.fillColor = NSColor.white.withAlphaComponent(specularAlpha * 0.25)
@@ -380,6 +411,8 @@ struct PongSceneRuntimeSnapshot: Codable {
     let rightPaddleY: CGFloat
     let leftScore: Int
     let rightScore: Int
+    let leftPaddleFillAlpha: CGFloat
+    let rightPaddleFillAlpha: CGFloat
     let ballVisible: Bool
     let paddlesVisible: Bool
     let liquidGlassRimVisible: Bool

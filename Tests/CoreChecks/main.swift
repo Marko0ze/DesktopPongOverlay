@@ -230,6 +230,7 @@ private func checkSettingsPersistence() {
         firstStore.settings.aiSkill = 0.82
         firstStore.settings.materialStyle = .frosted
         firstStore.settings.glassQuality = .balanced
+        firstStore.settings.paddleGlassFill = .transparent
         firstStore.settings.controlBindings.leftUp = KeyBinding(keyCode: 0, label: "A")
 
         let restoredStore = SettingsStore(defaults: defaults)
@@ -237,6 +238,7 @@ private func checkSettingsPersistence() {
         expect(restoredStore.settings.aiSkill == 0.82, "AI skill should survive relaunch")
         expect(restoredStore.settings.materialStyle == .frosted, "material style should survive relaunch")
         expect(restoredStore.settings.glassQuality == .balanced, "glass quality should survive relaunch")
+        expect(restoredStore.settings.paddleGlassFill == .transparent, "transparent paddle fill should survive relaunch")
         expect(restoredStore.settings.controlBindings.leftUp.keyCode == 0, "custom control binding should survive relaunch")
 
         restoredStore.resetToDefaults()

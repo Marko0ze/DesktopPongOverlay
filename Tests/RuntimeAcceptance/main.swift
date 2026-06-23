@@ -225,6 +225,7 @@ private final class RuntimeAcceptanceDelegate: NSObject, NSApplicationDelegate {
         settingsStore.settings.mode = .twoPlayer
         settingsStore.settings.materialStyle = .glass
         settingsStore.settings.glassQuality = .rich
+        settingsStore.settings.paddleGlassFill = .transparent
         settingsStore.settings.controlBindings.leftUp = KeyBinding(keyCode: 0, label: "A")
         settingsStore.settings.controlBindings.leftDown = KeyBinding(keyCode: 2, label: "D")
         settingsStore.settings.controlBindings.rightUp = KeyBinding(keyCode: 14, label: "E")
@@ -248,6 +249,11 @@ private final class RuntimeAcceptanceDelegate: NSObject, NSApplicationDelegate {
             "rich liquid glass layers visible",
             after.liquidGlassRimVisible && after.liquidGlassSpecularVisible,
             "rim=\(after.liquidGlassRimVisible), specular=\(after.liquidGlassSpecularVisible)"
+        )
+        record(
+            "transparent paddle glass fill",
+            after.leftPaddleFillAlpha == 0 && after.rightPaddleFillAlpha == 0,
+            "leftAlpha=\(after.leftPaddleFillAlpha), rightAlpha=\(after.rightPaddleFillAlpha)"
         )
     }
 
