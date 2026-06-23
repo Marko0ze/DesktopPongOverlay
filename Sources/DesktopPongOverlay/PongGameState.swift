@@ -105,14 +105,14 @@ struct PongGameState: Sendable {
             moveAI(side: .left, dt: dt, settings: settings, randomUnit: randomUnit)
             moveAI(side: .right, dt: dt, settings: settings, randomUnit: randomUnit)
         case .playerVsAI:
-            if let mouseY = input.mouseY {
+            if input.leftAxis != 0 {
+                leftPaddleY += input.leftAxis * playerSpeed * dt
+            } else if let mouseY = input.mouseY {
                 leftPaddleY = moveToward(
                     current: leftPaddleY,
                     target: mouseY,
                     maxDelta: playerSpeed * dt
                 )
-            } else {
-                leftPaddleY += input.leftAxis * playerSpeed * dt
             }
             moveAI(side: .right, dt: dt, settings: settings, randomUnit: randomUnit)
         case .twoPlayer:

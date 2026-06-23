@@ -122,6 +122,15 @@ private func checkControlModes() {
     )
     expect(playerVsAI.leftPaddleY > playerStart, "captured mouse position should move the player paddle")
 
+    let keyboardStart = playerVsAI.leftPaddleY
+    playerVsAI.update(
+        deltaTime: 1.0 / 30.0,
+        input: InputSnapshot(leftAxis: -1, mouseY: 600),
+        settings: settings,
+        randomUnit: { 0.5 }
+    )
+    expect(playerVsAI.leftPaddleY < keyboardStart, "W/S keyboard input should override stale mouse position")
+
     settings.mode = .demo
     var demo = PongGameState(playfieldSize: field, settings: settings)
     demo.ballPosition.y = 600
