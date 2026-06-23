@@ -105,14 +105,27 @@ struct PongGameState: Sendable {
             moveAI(side: .left, dt: dt, settings: settings, randomUnit: randomUnit)
             moveAI(side: .right, dt: dt, settings: settings, randomUnit: randomUnit)
         case .playerVsAI:
-            if input.leftAxis != 0 {
+            switch settings.playerControlMode {
+            case .keyboardOnly:
                 leftPaddleY += input.leftAxis * playerSpeed * dt
-            } else if let mouseY = input.mouseY {
-                leftPaddleY = moveToward(
-                    current: leftPaddleY,
-                    target: mouseY,
-                    maxDelta: playerSpeed * dt
-                )
+            case .mouseOnly:
+                if let mouseY = input.mouseY {
+                    leftPaddleY = moveToward(
+                        current: leftPaddleY,
+                        target: mouseY,
+                        maxDelta: playerSpeed * dt
+                    )
+                }
+            case .keyboardAndMouse:
+                if input.leftAxis != 0 {
+                    leftPaddleY += input.leftAxis * playerSpeed * dt
+                } else if let mouseY = input.mouseY {
+                    leftPaddleY = moveToward(
+                        current: leftPaddleY,
+                        target: mouseY,
+                        maxDelta: playerSpeed * dt
+                    )
+                }
             }
             moveAI(side: .right, dt: dt, settings: settings, randomUnit: randomUnit)
         case .twoPlayer:
@@ -129,15 +142,40 @@ struct PongGameState: Sendable {
         randomUnit: () -> Double
     ) {
         let skill = CGFloat(settings.aiSkill)
-        let noise = CGFloat(randomUnit() * 2 - 1) * (1 - skill) * 170
-        let target = ballPosition.y + noise
-        let maxSpeed = 300 + skill * 700
+        let paddleX: CGFloat = side == .left ? 30 : playfieldSize.width - 30
+        let ballIsIncoming = side == .left ? ballVelocity.dx < 0 : ballVelocity.dx > 0
+        let baseTarget: CGFloat
+        if ballIsIncoming {
+            baseTarget = predictedBallY(atX: paddleX)
+        } else {
+            baseTarget = playfieldSize.height / 2 + (ballPosition.y - playfieldSize.height / 2) * 0.22
+        }
+        let predictionError = CGFloat(randomUnit() * 2 - 1) * (1 - skill) * (90 + CGFloat(settings.paddleHeight) * 0.45)
+        let overshoot = CGFloat(randomUnit() * 2 - 1) * max(0, 0.55 - skill) * CGFloat(settings.paddleHeight)
+        let target = baseTarget + predictionError + overshoot
+        let maxSpeed = 260 + skill * 760
         switch side {
         case .left:
             leftPaddleY = moveToward(current: leftPaddleY, target: target, maxDelta: maxSpeed * dt)
         case .right:
             rightPaddleY = moveToward(current: rightPaddleY, target: target, maxDelta: maxSpeed * dt)
         }
+    }
+
+    private func predictedBallY(atX targetX: CGFloat) -> CGFloat {
+        guard abs(ballVelocity.dx) > 0.1, playfieldSize.height > 0 else {
+            return ballPosition.y
+        }
+        let travelTime = (targetX - ballPosition.x) / ballVelocity.dx
+        guard travelTime > 0 else { return ballPosition.y }
+        let rawY = ballPosition.y + ballVelocity.dy * travelTime
+        let period = playfieldSize.height * 2
+        var wrapped = rawY.truncatingRemainder(dividingBy: period)
+        if wrapped < 0 { wrapped += period }
+        if wrapped > playfieldSize.height {
+            wrapped = period - wrapped
+        }
+        return wrapped
     }
 
     private func moveToward(current: CGFloat, target: CGFloat, maxDelta: CGFloat) -> CGFloat {

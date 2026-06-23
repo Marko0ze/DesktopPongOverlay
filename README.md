@@ -30,12 +30,20 @@ The staged app contains both arm64 and x86_64 slices.
 ## Controls
 
 - Demo mode: AI plays both paddles.
-- Player vs AI: choose **Capture Input**, then move the mouse or use W/S.
-- Two Player: choose **Capture Input**; W/S controls the left paddle and Up/Down controls the right.
+- Player vs AI: choose **Capture Input**, then use the configured keyboard controls or mouse.
+- Two Player: choose **Capture Input**; each paddle uses its configured up/down keys.
+- Settings → Controls lets you remap left paddle, right paddle, and the global toggle key.
 - Presentation: choose **Desktop Overlay** for full-screen transparent Pong, or **Menu Bar Game** for a compact popover game from the menu-bar icon.
-- Global shortcut: Option-Command-P toggles the active game surface from anywhere.
+- Global shortcut: Option-Command plus the configured global toggle key opens the active game surface from anywhere.
 - In Menu Bar Game mode, click the popover to pause/resume.
 - Menu shortcuts: Command-H show/hide, Command-P pause/resume, Command-R reset, Command-I capture input, Command-, settings, Command-Q quit.
+
+## Appearance
+
+- Settings → Appearance controls Liquid Glass, Clear, and Frosted modes.
+- Liquid Glass uses native SpriteKit layers for object-local depth, rim light, glow, and specular highlights.
+- The app does not sample the desktop for live refraction, preserving the no-screen-recording privacy model.
+- Reference provenance is tracked in `docs/reference-provenance.md`; external repositories were used as inspiration only.
 
 ## Privacy
 

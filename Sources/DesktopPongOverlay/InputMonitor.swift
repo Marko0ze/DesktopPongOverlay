@@ -4,6 +4,7 @@ import AppKit
 final class InputMonitor {
     private var localMonitor: Any?
     private var pressedKeyCodes = Set<UInt16>()
+    private var gameplayKeyCodes = ControlBindings.default.gameplayKeyCodes
     private(set) var mouseScreenY: CGFloat?
     var isCapturingInput = false {
         didSet {
@@ -32,9 +33,25 @@ final class InputMonitor {
         pressedKeyCodes.removeAll()
     }
 
-    func snapshot(screenOriginY: CGFloat) -> InputSnapshot {
-        let leftAxis = axis(negativeKey: 1, positiveKey: 13) // S / W
-        let rightAxis = axis(negativeKey: 125, positiveKey: 126) // Down / Up
+    func updateControlBindings(_ bindings: ControlBindings) {
+        gameplayKeyCodes = bindings.gameplayKeyCodes
+    }
+
+    func applyRuntimeTestInput(pressedKeyCodes: Set<UInt16>, mouseScreenY: CGFloat? = nil) {
+        self.pressedKeyCodes = pressedKeyCodes
+        self.mouseScreenY = mouseScreenY
+    }
+
+    func snapshot(screenOriginY: CGFloat, settings: PongSettings) -> InputSnapshot {
+        updateControlBindings(settings.controlBindings)
+        let leftAxis = axis(
+            negativeKey: settings.controlBindings.leftDown.keyCode,
+            positiveKey: settings.controlBindings.leftUp.keyCode
+        )
+        let rightAxis = axis(
+            negativeKey: settings.controlBindings.rightDown.keyCode,
+            positiveKey: settings.controlBindings.rightUp.keyCode
+        )
         let localMouseY = mouseScreenY.map { $0 - screenOriginY }
         return InputSnapshot(
             leftAxis: leftAxis,
@@ -69,6 +86,6 @@ final class InputMonitor {
     }
 
     private func isGameKey(_ keyCode: UInt16) -> Bool {
-        [1, 13, 125, 126].contains(keyCode)
+        gameplayKeyCodes.contains(keyCode)
     }
 }

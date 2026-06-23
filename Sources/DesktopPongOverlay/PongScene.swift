@@ -10,6 +10,12 @@ final class PongScene: SKScene {
     private let leftPaddle = SKShapeNode()
     private let rightPaddle = SKShapeNode()
     private let ball = SKShapeNode()
+    private let leftPaddleRim = SKShapeNode()
+    private let rightPaddleRim = SKShapeNode()
+    private let ballRim = SKShapeNode()
+    private let leftPaddleSpecular = SKShapeNode()
+    private let rightPaddleSpecular = SKShapeNode()
+    private let ballSpecular = SKShapeNode()
     private let centerLine = SKShapeNode()
     private let centerLineShadow = SKShapeNode()
     private let leftScore = SKLabelNode(fontNamed: "SFMono-Semibold")
@@ -65,7 +71,7 @@ final class PongScene: SKScene {
 
         gameState.update(
             deltaTime: currentTime - lastUpdateTime,
-            input: inputMonitor.snapshot(screenOriginY: screenOriginY),
+            input: inputMonitor.snapshot(screenOriginY: screenOriginY, settings: settingsStore.settings),
             settings: settingsStore.settings
         )
         render()
@@ -107,6 +113,8 @@ final class PongScene: SKScene {
             rightScore: gameState.rightScore,
             ballVisible: !ball.isHidden && ball.parent === self,
             paddlesVisible: !leftPaddle.isHidden && !rightPaddle.isHidden,
+            liquidGlassRimVisible: settingsStore.settings.materialStyle == .glass && !ballRim.isHidden && !leftPaddleRim.isHidden,
+            liquidGlassSpecularVisible: settingsStore.settings.materialStyle == .glass && !ballSpecular.isHidden && !leftPaddleSpecular.isHidden,
             centerLineVisible: !centerLine.isHidden,
             scoreVisible: !leftScore.isHidden && !rightScore.isHidden
         )
@@ -123,12 +131,24 @@ final class PongScene: SKScene {
     }
 
     private func configureNodes() {
-        [centerLineShadow, centerLine, leftPaddle, rightPaddle, ball, leftScoreShadow, rightScoreShadow, leftScore, rightScore].forEach(addChild)
+        [
+            centerLineShadow, centerLine,
+            leftPaddle, rightPaddle, ball,
+            leftPaddleRim, rightPaddleRim, ballRim,
+            leftPaddleSpecular, rightPaddleSpecular, ballSpecular,
+            leftScoreShadow, rightScoreShadow, leftScore, rightScore
+        ].forEach(addChild)
         centerLineShadow.zPosition = -0.1
         centerLine.zPosition = 0
         leftPaddle.zPosition = 2
         rightPaddle.zPosition = 2
         ball.zPosition = 3
+        leftPaddleRim.zPosition = 2.2
+        rightPaddleRim.zPosition = 2.2
+        ballRim.zPosition = 3.2
+        leftPaddleSpecular.zPosition = 2.3
+        rightPaddleSpecular.zPosition = 2.3
+        ballSpecular.zPosition = 3.3
         leftScore.zPosition = 2
         rightScore.zPosition = 2
         leftScoreShadow.zPosition = 1.9
@@ -141,6 +161,7 @@ final class PongScene: SKScene {
 
     private func applySettings() {
         let settings = settingsStore.settings
+        inputMonitor.updateControlBindings(settings.controlBindings)
         let paddleSize = CGSize(width: settings.paddleWidth, height: settings.paddleHeight)
         let cornerRadius = min(paddleSize.width / 2, paddleSize.width * settings.paddleRoundness / 2)
 
@@ -151,6 +172,22 @@ final class PongScene: SKScene {
             transform: nil
         )
         rightPaddle.path = leftPaddle.path
+        leftPaddleRim.path = leftPaddle.path
+        rightPaddleRim.path = leftPaddle.path
+        let specularWidth = max(2, paddleSize.width * 0.28)
+        let specularPath = CGPath(
+            roundedRect: CGRect(
+                x: -paddleSize.width * 0.28,
+                y: -paddleSize.height * 0.34,
+                width: specularWidth,
+                height: paddleSize.height * 0.62
+            ),
+            cornerWidth: specularWidth / 2,
+            cornerHeight: specularWidth / 2,
+            transform: nil
+        )
+        leftPaddleSpecular.path = specularPath
+        rightPaddleSpecular.path = specularPath
         ball.path = CGPath(
             ellipseIn: CGRect(
                 x: -settings.ballSize / 2,
@@ -160,10 +197,20 @@ final class PongScene: SKScene {
             ),
             transform: nil
         )
+        ballRim.path = ball.path
+        ballSpecular.path = CGPath(
+            ellipseIn: CGRect(
+                x: -settings.ballSize * 0.28,
+                y: settings.ballSize * 0.10,
+                width: settings.ballSize * 0.32,
+                height: settings.ballSize * 0.24
+            ),
+            transform: nil
+        )
 
-        style(leftPaddle, color: settings.playerPaddleColor.nsColor, settings: settings)
-        style(rightPaddle, color: settings.aiPaddleColor.nsColor, settings: settings)
-        style(ball, color: settings.ballColor.nsColor, settings: settings)
+        styleGlassObject(base: leftPaddle, rim: leftPaddleRim, specular: leftPaddleSpecular, color: settings.playerPaddleColor.nsColor, settings: settings)
+        styleGlassObject(base: rightPaddle, rim: rightPaddleRim, specular: rightPaddleSpecular, color: settings.aiPaddleColor.nsColor, settings: settings)
+        styleGlassObject(base: ball, rim: ballRim, specular: ballSpecular, color: settings.ballColor.nsColor, settings: settings)
 
         leftScore.fontSize = 38
         rightScore.fontSize = 38
@@ -182,24 +229,58 @@ final class PongScene: SKScene {
         rebuildCenterLine()
     }
 
-    private func style(_ node: SKShapeNode, color: NSColor, settings: PongSettings) {
+    private func styleGlassObject(base: SKShapeNode, rim: SKShapeNode, specular: SKShapeNode, color: NSColor, settings: PongSettings) {
         let opacity = CGFloat(settings.objectOpacity)
+        let qualityMultiplier = glassQualityMultiplier(settings.glassQuality)
+        let rimAlpha = CGFloat(settings.glassRimIntensity) * opacity * qualityMultiplier
+        let specularAlpha = CGFloat(settings.glassSpecularIntensity) * opacity * qualityMultiplier
+        let depth = CGFloat(settings.glassDepth) * qualityMultiplier
         switch settings.materialStyle {
         case .glass:
-            node.fillColor = color.withAlphaComponent(opacity * 0.62)
-            node.strokeColor = NSColor.white.withAlphaComponent(opacity * 0.85)
-            node.lineWidth = 1.5
-            node.glowWidth = settings.glowStrength * 12
+            base.fillColor = color.withAlphaComponent(opacity * (0.42 + depth * 0.22))
+            base.strokeColor = color.blended(withFraction: 0.40, of: .white)?.withAlphaComponent(opacity * 0.35) ?? color
+            base.lineWidth = 0.8
+            base.glowWidth = settings.glowStrength * (8 + depth * 10)
+            rim.fillColor = .clear
+            rim.strokeColor = NSColor.white.withAlphaComponent(rimAlpha)
+            rim.lineWidth = 1.4 + depth * 1.6
+            rim.glowWidth = settings.glowStrength * 4 * qualityMultiplier
+            specular.fillColor = NSColor.white.withAlphaComponent(specularAlpha * 0.75)
+            specular.strokeColor = NSColor.white.withAlphaComponent(specularAlpha * 0.35)
+            specular.lineWidth = 0.5
+            specular.glowWidth = settings.glowStrength * 3 * qualityMultiplier
+            rim.isHidden = settings.glassQuality == .performance
+            specular.isHidden = settings.glassQuality == .performance
         case .clear:
-            node.fillColor = color.withAlphaComponent(opacity)
-            node.strokeColor = .clear
-            node.lineWidth = 0
-            node.glowWidth = 0
+            base.fillColor = color.withAlphaComponent(opacity)
+            base.strokeColor = .clear
+            base.lineWidth = 0
+            base.glowWidth = 0
+            rim.isHidden = true
+            specular.isHidden = true
         case .frosted:
-            node.fillColor = color.withAlphaComponent(opacity * 0.72)
-            node.strokeColor = color.blended(withFraction: 0.55, of: .white)?.withAlphaComponent(opacity * 0.6) ?? color
-            node.lineWidth = 1
-            node.glowWidth = settings.glowStrength * 7
+            base.fillColor = color.withAlphaComponent(opacity * (0.58 + depth * 0.12))
+            base.strokeColor = color.blended(withFraction: 0.55, of: .white)?.withAlphaComponent(opacity * 0.5) ?? color
+            base.lineWidth = 1
+            base.glowWidth = settings.glowStrength * (5 + depth * 5)
+            rim.fillColor = .clear
+            rim.strokeColor = NSColor.white.withAlphaComponent(rimAlpha * 0.45)
+            rim.lineWidth = 1
+            rim.glowWidth = settings.glowStrength * 2
+            specular.fillColor = NSColor.white.withAlphaComponent(specularAlpha * 0.25)
+            specular.strokeColor = .clear
+            specular.lineWidth = 0
+            specular.glowWidth = 0
+            rim.isHidden = settings.glassQuality == .performance
+            specular.isHidden = settings.glassQuality != .rich
+        }
+    }
+
+    private func glassQualityMultiplier(_ quality: GlassQuality) -> CGFloat {
+        switch quality {
+        case .performance: 0.35
+        case .balanced: 0.75
+        case .rich: 1.0
         }
     }
 
@@ -223,6 +304,12 @@ final class PongScene: SKScene {
         leftPaddle.position = CGPoint(x: 30, y: gameState.leftPaddleY)
         rightPaddle.position = CGPoint(x: max(30, size.width - 30), y: gameState.rightPaddleY)
         ball.position = gameState.ballPosition
+        leftPaddleRim.position = leftPaddle.position
+        rightPaddleRim.position = rightPaddle.position
+        ballRim.position = ball.position
+        leftPaddleSpecular.position = leftPaddle.position
+        rightPaddleSpecular.position = rightPaddle.position
+        ballSpecular.position = ball.position
         leftScore.text = String(gameState.leftScore)
         rightScore.text = String(gameState.rightScore)
         leftScoreShadow.text = leftScore.text
@@ -241,16 +328,28 @@ final class PongScene: SKScene {
         guard !shouldReduceMotion, settings.impactPreset != .off else { return }
         onImpact?()
 
-        let paddle = gameState.lastImpactSide == .left ? leftPaddle : rightPaddle
+        let paddleNodes = gameState.lastImpactSide == .left
+            ? [leftPaddle, leftPaddleRim, leftPaddleSpecular]
+            : [rightPaddle, rightPaddleRim, rightPaddleSpecular]
         let amount = settings.impactPreset.scale
-        paddle.removeAction(forKey: "impactSquish")
-        paddle.setScale(1)
         let squish = SKAction.scaleX(to: 1 + amount, y: 1 - amount * 0.48, duration: 0.045)
         squish.timingMode = .easeOut
         let restore = SKAction.scale(to: 1, duration: 0.10)
         restore.timingMode = .easeOut
-        paddle.run(.sequence([squish, restore]), withKey: "impactSquish")
-        spawnRipple(at: CGPoint(x: paddle.position.x, y: gameState.ballPosition.y), strength: amount)
+        paddleNodes.forEach { node in
+            node.removeAction(forKey: "impactSquish")
+            node.setScale(1)
+            node.run(.sequence([squish, restore]), withKey: "impactSquish")
+        }
+        [ball, ballRim, ballSpecular].forEach { node in
+            node.removeAction(forKey: "impactStretch")
+            node.setScale(1)
+            let stretch = SKAction.scaleX(to: 1 + amount * 0.55, y: 1 - amount * 0.30, duration: 0.04)
+            stretch.timingMode = .easeOut
+            node.run(.sequence([stretch, restore]), withKey: "impactStretch")
+        }
+        let impactX = gameState.lastImpactSide == .left ? leftPaddle.position.x : rightPaddle.position.x
+        spawnRipple(at: CGPoint(x: impactX, y: gameState.ballPosition.y), strength: amount)
     }
 
     private func spawnRipple(at position: CGPoint, strength: CGFloat) {
@@ -283,6 +382,8 @@ struct PongSceneRuntimeSnapshot: Codable {
     let rightScore: Int
     let ballVisible: Bool
     let paddlesVisible: Bool
+    let liquidGlassRimVisible: Bool
+    let liquidGlassSpecularVisible: Bool
     let centerLineVisible: Bool
     let scoreVisible: Bool
 }

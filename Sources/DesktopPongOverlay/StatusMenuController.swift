@@ -15,6 +15,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     private let menuBarGameItem = NSMenuItem()
     private let pauseItem = NSMenuItem()
     private let captureItem = NSMenuItem()
+    private let globalShortcutItem = NSMenuItem()
     private var appliedPresentationMode: PresentationMode
     private var presentationItems: [PresentationMode: NSMenuItem] = [:]
     private var modeItems: [GameMode: NSMenuItem] = [:]
@@ -55,6 +56,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         menuBarGameItem.title = menuBarGameController.isShown ? "Close Menu Bar Game" : "Open Menu Bar Game"
         pauseItem.title = activeSceneIsPaused ? "Resume" : "Pause"
         captureItem.state = settingsStore.settings.passThrough ? .off : .on
+        globalShortcutItem.title = "Global Shortcut: \(GlobalShortcutController.shortcutDescription(for: settingsStore.settings.controlBindings.globalToggle))"
         presentationItems.forEach { mode, item in
             item.state = settingsStore.settings.presentationMode == mode ? .on : .off
         }
@@ -159,7 +161,9 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         menu.addItem(actionItem("Settings…", action: #selector(openPreferences), key: ","))
         menu.addItem(actionItem("About Desktop Pong Overlay", action: #selector(openAbout)))
         menu.addItem(.separator())
-        menu.addItem(actionItem("Global Shortcut: \(GlobalShortcutController.shortcutDescription)", action: nil))
+        globalShortcutItem.title = "Global Shortcut: \(GlobalShortcutController.shortcutDescription(for: settingsStore.settings.controlBindings.globalToggle))"
+        globalShortcutItem.isEnabled = false
+        menu.addItem(globalShortcutItem)
         menu.addItem(actionItem("Quit Desktop Pong Overlay", action: #selector(quit), key: "q"))
     }
 

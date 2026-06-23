@@ -3,19 +3,23 @@ import Carbon
 
 @MainActor
 final class GlobalShortcutController {
-    static let shortcutDescription = "⌥⌘P"
+    static func shortcutDescription(for binding: KeyBinding) -> String {
+        "⌥⌘\(binding.label)"
+    }
 
     private let action: () -> Void
     private var hotKeyRef: EventHotKeyRef?
     private var eventHandlerRef: EventHandlerRef?
     private let hotKeyID = EventHotKeyID(signature: fourCharCode("DPOG"), id: 1)
+    private(set) var activeBinding = KeyBinding.p
 
     init(action: @escaping () -> Void) {
         self.action = action
     }
 
-    func register() {
+    func register(binding: KeyBinding) {
         unregister()
+        activeBinding = binding
 
         var eventType = EventTypeSpec(
             eventClass: OSType(kEventClassKeyboard),
@@ -58,7 +62,7 @@ final class GlobalShortcutController {
         )
 
         RegisterEventHotKey(
-            UInt32(kVK_ANSI_P),
+            UInt32(binding.keyCode),
             UInt32(cmdKey | optionKey),
             hotKeyID,
             GetApplicationEventTarget(),

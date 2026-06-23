@@ -181,6 +181,8 @@ private final class RuntimeAcceptanceDelegate: NSObject, NSApplicationDelegate {
         record("difficulty update", settingsStore.settings.aiSkill == 0.95, "skill=\(settingsStore.settings.aiSkill)")
         record("status menu difficulty action", difficultyActionSent, "sent=\(difficultyActionSent)")
 
+        runRemappedControlAndGlassChecks()
+
         let miniGameActionSent = statusMenuController.performRuntimeMenuAction(titled: "Open Menu Bar Game")
         let miniGame = menuBarGameController.runtimeSnapshot()
         record(
@@ -211,6 +213,36 @@ private final class RuntimeAcceptanceDelegate: NSObject, NSApplicationDelegate {
 
         runAuxiliaryWindowCycles()
         finishReport()
+    }
+
+    private func runRemappedControlAndGlassChecks() {
+        settingsStore.settings.mode = .twoPlayer
+        settingsStore.settings.materialStyle = .glass
+        settingsStore.settings.glassQuality = .rich
+        settingsStore.settings.controlBindings.leftUp = KeyBinding(keyCode: 0, label: "A")
+        settingsStore.settings.controlBindings.leftDown = KeyBinding(keyCode: 2, label: "D")
+        settingsStore.settings.controlBindings.rightUp = KeyBinding(keyCode: 14, label: "E")
+        settingsStore.settings.controlBindings.rightDown = KeyBinding(keyCode: 15, label: "R")
+
+        let before = overlayController.scene.runtimeSnapshot()
+        inputMonitor.isCapturingInput = true
+        inputMonitor.updateControlBindings(settingsStore.settings.controlBindings)
+        inputMonitor.applyRuntimeTestInput(pressedKeyCodes: [0, 15])
+        overlayController.scene.update(ProcessInfo.processInfo.systemUptime + 1.0)
+        overlayController.scene.update(ProcessInfo.processInfo.systemUptime + 1.05)
+        inputMonitor.applyRuntimeTestInput(pressedKeyCodes: [])
+        let after = overlayController.scene.runtimeSnapshot()
+
+        record(
+            "remapped controls move paddles",
+            after.leftPaddleY > before.leftPaddleY && after.rightPaddleY < before.rightPaddleY,
+            "leftBefore=\(before.leftPaddleY), leftAfter=\(after.leftPaddleY), rightBefore=\(before.rightPaddleY), rightAfter=\(after.rightPaddleY)"
+        )
+        record(
+            "rich liquid glass layers visible",
+            after.liquidGlassRimVisible && after.liquidGlassSpecularVisible,
+            "rim=\(after.liquidGlassRimVisible), specular=\(after.liquidGlassSpecularVisible)"
+        )
     }
 
     private func runAuxiliaryWindowCycles() {

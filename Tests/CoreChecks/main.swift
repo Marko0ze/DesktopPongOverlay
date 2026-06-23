@@ -99,6 +99,10 @@ private func checkControlModes() {
     let field = CGSize(width: 1_000, height: 700)
 
     settings.mode = .twoPlayer
+    settings.controlBindings.leftUp = KeyBinding(keyCode: 0, label: "A")
+    settings.controlBindings.leftDown = KeyBinding(keyCode: 2, label: "D")
+    settings.controlBindings.rightUp = KeyBinding(keyCode: 14, label: "E")
+    settings.controlBindings.rightDown = KeyBinding(keyCode: 15, label: "R")
     var twoPlayer = PongGameState(playfieldSize: field, settings: settings)
     let twoPlayerLeftStart = twoPlayer.leftPaddleY
     let twoPlayerRightStart = twoPlayer.rightPaddleY
@@ -108,10 +112,11 @@ private func checkControlModes() {
         settings: settings,
         randomUnit: { 0.5 }
     )
-    expect(twoPlayer.leftPaddleY > twoPlayerLeftStart, "W input should move the left paddle up")
-    expect(twoPlayer.rightPaddleY < twoPlayerRightStart, "Down input should move the right paddle down")
+    expect(twoPlayer.leftPaddleY > twoPlayerLeftStart, "remapped left-up input should move the left paddle up")
+    expect(twoPlayer.rightPaddleY < twoPlayerRightStart, "remapped right-down input should move the right paddle down")
 
     settings.mode = .playerVsAI
+    settings.controlBindings = .default
     var playerVsAI = PongGameState(playfieldSize: field, settings: settings)
     let playerStart = playerVsAI.leftPaddleY
     playerVsAI.update(
@@ -130,6 +135,26 @@ private func checkControlModes() {
         randomUnit: { 0.5 }
     )
     expect(playerVsAI.leftPaddleY < keyboardStart, "W/S keyboard input should override stale mouse position")
+
+    settings.playerControlMode = .mouseOnly
+    let mouseOnlyStart = playerVsAI.leftPaddleY
+    playerVsAI.update(
+        deltaTime: 1.0 / 30.0,
+        input: InputSnapshot(leftAxis: -1, mouseY: 650),
+        settings: settings,
+        randomUnit: { 0.5 }
+    )
+    expect(playerVsAI.leftPaddleY > mouseOnlyStart, "mouse-only control should ignore keyboard axis and follow mouse")
+
+    settings.playerControlMode = .keyboardOnly
+    let keyboardOnlyStart = playerVsAI.leftPaddleY
+    playerVsAI.update(
+        deltaTime: 1.0 / 30.0,
+        input: InputSnapshot(leftAxis: -1, mouseY: 650),
+        settings: settings,
+        randomUnit: { 0.5 }
+    )
+    expect(playerVsAI.leftPaddleY < keyboardOnlyStart, "keyboard-only control should ignore stale mouse position")
 
     settings.mode = .demo
     var demo = PongGameState(playfieldSize: field, settings: settings)
@@ -204,15 +229,26 @@ private func checkSettingsPersistence() {
         firstStore.settings.mode = .twoPlayer
         firstStore.settings.aiSkill = 0.82
         firstStore.settings.materialStyle = .frosted
+        firstStore.settings.glassQuality = .balanced
+        firstStore.settings.controlBindings.leftUp = KeyBinding(keyCode: 0, label: "A")
 
         let restoredStore = SettingsStore(defaults: defaults)
         expect(restoredStore.settings.mode == .twoPlayer, "game mode should survive relaunch")
         expect(restoredStore.settings.aiSkill == 0.82, "AI skill should survive relaunch")
         expect(restoredStore.settings.materialStyle == .frosted, "material style should survive relaunch")
+        expect(restoredStore.settings.glassQuality == .balanced, "glass quality should survive relaunch")
+        expect(restoredStore.settings.controlBindings.leftUp.keyCode == 0, "custom control binding should survive relaunch")
 
         restoredStore.resetToDefaults()
         expect(restoredStore.settings == .default, "Reset to Defaults should restore every setting")
     }
+}
+
+private func checkControlBindingConflicts() {
+    var bindings = ControlBindings.default
+    expect(!bindings.hasDuplicateGameplayKeys, "default gameplay controls should be unique")
+    bindings.leftUp = bindings.leftDown
+    expect(bindings.hasDuplicateGameplayKeys, "duplicate gameplay controls should be detected")
 }
 
 checkLargeDeltaClamping()
@@ -224,4 +260,5 @@ checkSpeedMapping()
 checkControlModes()
 checkAIDifficultyChangesBehavior()
 checkSettingsPersistence()
+checkControlBindingConflicts()
 print("Core checks passed (\(checkCount) assertions)")

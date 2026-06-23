@@ -1,98 +1,233 @@
 import AppKit
 import SwiftUI
 
+private enum SettingsSection: String, CaseIterable, Identifiable {
+    case appearance
+    case controls
+    case gameplay
+    case presentation
+    case privacy
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .appearance: "Appearance"
+        case .controls: "Controls"
+        case .gameplay: "Gameplay"
+        case .presentation: "Presentation"
+        case .privacy: "Privacy"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .appearance: "sparkles"
+        case .controls: "keyboard"
+        case .gameplay: "gamecontroller"
+        case .presentation: "menubar.rectangle"
+        case .privacy: "hand.raised"
+        }
+    }
+}
+
 struct PreferencesView: View {
     @ObservedObject var store: SettingsStore
     let resetGame: () -> Void
+    @State private var selection: SettingsSection? = .appearance
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                SettingsPreviewView(settings: store.settings)
-
-                GroupBox("Appearance") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Material")
-                            .font(.subheadline.weight(.medium))
-                        MaterialStylePicker(selection: $store.settings.materialStyle)
-
-                        ColorPicker("Player Paddle", selection: colorBinding(\.playerPaddleColor))
-                        ColorPicker("AI Paddle", selection: colorBinding(\.aiPaddleColor))
-                        ColorPicker("Ball", selection: colorBinding(\.ballColor))
-                        ColorPicker("Score", selection: colorBinding(\.scoreColor))
-                        valueSlider("Object Opacity", value: $store.settings.objectOpacity, range: 0.2 ... 1, format: .percent)
-                        valueSlider("Glow", value: $store.settings.glowStrength, range: 0 ... 1, format: .percent)
+        HStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Settings")
+                    .font(.title2.weight(.semibold))
+                    .padding(.bottom, 8)
+                ForEach(SettingsSection.allCases) { section in
+                    Button {
+                        selection = section
+                    } label: {
+                        Label(section.title, systemImage: section.systemImage)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 8)
+                            .contentShape(Rectangle())
                     }
-                    .padding(.top, 6)
+                    .buttonStyle(.plain)
+                    .foregroundStyle((selection ?? .appearance) == section ? .primary : .secondary)
+                    .background {
+                        if (selection ?? .appearance) == section {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(Color.accentColor.opacity(0.18))
+                        }
+                    }
+                    .accessibilityValue((selection ?? .appearance) == section ? "Selected" : "Not selected")
                 }
+                Spacer()
+            }
+            .frame(width: 190)
+            .padding(18)
+            .background(.ultraThinMaterial)
 
-                GroupBox("Gameplay Feel") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Picker("Impact", selection: $store.settings.impactPreset) {
-                            ForEach(ImpactPreset.allCases, id: \.self) { preset in
-                                Text(preset.title).tag(preset)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        valueSlider("Paddle Roundness", value: $store.settings.paddleRoundness, range: 0 ... 1, format: .percent)
-                        valueSlider("Paddle Height", value: $store.settings.paddleHeight, range: 60 ... 240, format: .pixels)
-                        valueSlider("Paddle Width", value: $store.settings.paddleWidth, range: 8 ... 36, format: .pixels)
-                        valueSlider("Ball Size", value: $store.settings.ballSize, range: 8 ... 36, format: .pixels)
-                        valueSlider("Ball Speed", value: $store.settings.ballSpeed, range: 0 ... 1, format: .percent)
-                        Text("Ball speed applies on the next serve, then ramps gently after each paddle hit.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        valueSlider("AI Skill", value: $store.settings.aiSkill, range: 0 ... 1, format: .percent)
-                    }
-                    .padding(.top, 6)
+            Divider()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    SettingsPreviewView(settings: store.settings)
+                    detail(for: selection ?? .appearance)
                 }
+                .padding(24)
+            }
+        }
+        .frame(width: 760, height: 580)
+    }
 
-                GroupBox("Game") {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Picker("Mode", selection: $store.settings.mode) {
-                            ForEach(GameMode.allCases, id: \.self) { mode in
-                                Text(mode.title).tag(mode)
-                            }
-                        }
-                        Toggle("Left Paddle is AI", isOn: leftPaddleIsAIBinding)
-                        Toggle("Show Score", isOn: $store.settings.showScore)
-                        Toggle("Show Centre Line", isOn: $store.settings.showCenterLine)
-                        HStack {
-                            Button("Reset Score", action: resetGame)
-                            Spacer()
-                            Button("Reset to Defaults", action: store.resetToDefaults)
-                        }
-                    }
-                    .padding(.top, 6)
-                }
+    @ViewBuilder private func detail(for section: SettingsSection) -> some View {
+        switch section {
+        case .appearance:
+            appearanceSettings
+        case .controls:
+            controlsSettings
+        case .gameplay:
+            gameplaySettings
+        case .presentation:
+            presentationSettings
+        case .privacy:
+            privacySettings
+        }
+    }
 
-                DisclosureGroup("Advanced") {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Picker("Presentation", selection: $store.settings.presentationMode) {
-                            ForEach(PresentationMode.allCases, id: \.self) { mode in
-                                Text(mode.title).tag(mode)
-                            }
-                        }
-                        Text("Desktop Overlay floats over the screen. Menu Bar Game collapses Pong into the icon popover.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Toggle("Pass-through Overlay", isOn: $store.settings.passThrough)
-                        Text("When enabled, clicks go to the apps underneath the game.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        LabeledContent("Global Shortcut", value: GlobalShortcutController.shortcutDescription)
-                        Toggle("Reduced Motion", isOn: $store.settings.reducedMotion)
-                        Text("The system Reduce Motion setting is respected automatically too.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.top, 8)
+    private var appearanceSettings: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Liquid Glass")
+                .font(.title3.weight(.semibold))
+            Text("Object-local glass keeps the no-screen-recording privacy promise while giving the ball and paddles richer depth, rim light, glow, and specular highlights.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            MaterialStylePicker(selection: $store.settings.materialStyle)
+            Picker("Glass Quality", selection: $store.settings.glassQuality) {
+                ForEach(GlassQuality.allCases, id: \.self) { quality in
+                    Text(quality.title).tag(quality)
                 }
             }
-            .padding(20)
+            .pickerStyle(.segmented)
+            ColorPicker("Player Paddle", selection: colorBinding(\.playerPaddleColor))
+            ColorPicker("AI Paddle", selection: colorBinding(\.aiPaddleColor))
+            ColorPicker("Ball", selection: colorBinding(\.ballColor))
+            ColorPicker("Score", selection: colorBinding(\.scoreColor))
+            valueSlider("Object Opacity", value: $store.settings.objectOpacity, range: 0.2 ... 1, format: .percent)
+            valueSlider("Glow", value: $store.settings.glowStrength, range: 0 ... 1, format: .percent)
+            valueSlider("Rim Intensity", value: $store.settings.glassRimIntensity, range: 0 ... 1, format: .percent)
+            valueSlider("Specular Highlight", value: $store.settings.glassSpecularIntensity, range: 0 ... 1, format: .percent)
+            valueSlider("Glass Depth", value: $store.settings.glassDepth, range: 0 ... 1, format: .percent)
         }
-        .frame(width: 500, height: 650)
-        .background(.background)
+        .settingsCard()
+    }
+
+    private var controlsSettings: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Controls")
+                .font(.title3.weight(.semibold))
+            Picker("Player Control", selection: $store.settings.playerControlMode) {
+                ForEach(PlayerControlMode.allCases, id: \.self) { mode in
+                    Text(mode.title).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            KeyBindingRow(title: "Left Paddle Up", binding: $store.settings.controlBindings.leftUp)
+            KeyBindingRow(title: "Left Paddle Down", binding: $store.settings.controlBindings.leftDown)
+            Divider()
+            KeyBindingRow(title: "Right Paddle Up", binding: $store.settings.controlBindings.rightUp)
+            KeyBindingRow(title: "Right Paddle Down", binding: $store.settings.controlBindings.rightDown)
+            if store.settings.controlBindings.hasDuplicateGameplayKeys {
+                Label("Each gameplay action needs a unique key.", systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                    .font(.caption)
+            }
+            Divider()
+            KeyBindingRow(
+                title: "Global Toggle",
+                binding: $store.settings.controlBindings.globalToggle,
+                prefix: "⌥⌘"
+            )
+            HStack {
+                Spacer()
+                Button("Reset Controls") {
+                    store.settings.controlBindings = .default
+                    store.settings.playerControlMode = .keyboardAndMouse
+                }
+            }
+            Text("Desktop Overlay only listens while Capture Input is enabled. Menu Bar Game listens while its popover is open.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .settingsCard()
+    }
+
+    private var gameplaySettings: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Gameplay")
+                .font(.title3.weight(.semibold))
+            Picker("Mode", selection: $store.settings.mode) {
+                ForEach(GameMode.allCases, id: \.self) { mode in
+                    Text(mode.title).tag(mode)
+                }
+            }
+            Toggle("Left Paddle is AI", isOn: leftPaddleIsAIBinding)
+            Picker("Impact", selection: $store.settings.impactPreset) {
+                ForEach(ImpactPreset.allCases, id: \.self) { preset in
+                    Text(preset.title).tag(preset)
+                }
+            }
+            .pickerStyle(.segmented)
+            valueSlider("Paddle Roundness", value: $store.settings.paddleRoundness, range: 0 ... 1, format: .percent)
+            valueSlider("Paddle Height", value: $store.settings.paddleHeight, range: 60 ... 240, format: .pixels)
+            valueSlider("Paddle Width", value: $store.settings.paddleWidth, range: 8 ... 36, format: .pixels)
+            valueSlider("Ball Size", value: $store.settings.ballSize, range: 8 ... 36, format: .pixels)
+            valueSlider("Ball Speed", value: $store.settings.ballSpeed, range: 0 ... 1, format: .percent)
+            Text("Ball speed applies on the next serve, then ramps gently after each paddle hit.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            valueSlider("AI Skill", value: $store.settings.aiSkill, range: 0 ... 1, format: .percent)
+            HStack {
+                Button("Reset Score", action: resetGame)
+                Spacer()
+                Button("Reset All Settings", action: store.resetToDefaults)
+            }
+        }
+        .settingsCard()
+    }
+
+    private var presentationSettings: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Presentation")
+                .font(.title3.weight(.semibold))
+            Picker("Presentation", selection: $store.settings.presentationMode) {
+                ForEach(PresentationMode.allCases, id: \.self) { mode in
+                    Text(mode.title).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            Toggle("Pass-through Overlay", isOn: $store.settings.passThrough)
+            Toggle("Show Score", isOn: $store.settings.showScore)
+            Toggle("Show Centre Line", isOn: $store.settings.showCenterLine)
+            Toggle("Reduced Motion", isOn: $store.settings.reducedMotion)
+            Text("Desktop Overlay floats over the screen. Menu Bar Game collapses Pong into the icon popover.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .settingsCard()
+    }
+
+    private var privacySettings: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Privacy")
+                .font(.title3.weight(.semibold))
+            Label("No internet, analytics, accounts, or data collection.", systemImage: "network.slash")
+            Label("No screen recording or screenshots.", systemImage: "camera.viewfinder")
+            Label("No global input monitor; the global shortcut is a registered macOS hotkey.", systemImage: "keyboard")
+            Label("Liquid Glass is simulated locally on the game objects, not by sampling your desktop.", systemImage: "sparkles")
+        }
+        .settingsCard()
     }
 
     private func colorBinding(_ keyPath: WritableKeyPath<PongSettings, RGBAColor>) -> Binding<Color> {
@@ -126,6 +261,64 @@ struct PreferencesView: View {
             Slider(value: value, in: range)
                 .accessibilityLabel(title)
         }
+    }
+}
+
+private struct SettingsCardModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+private extension View {
+    func settingsCard() -> some View {
+        modifier(SettingsCardModifier())
+    }
+}
+
+private struct KeyBindingRow: View {
+    let title: String
+    @Binding var binding: KeyBinding
+    var prefix = ""
+    @State private var isRecording = false
+    @State private var monitor: Any?
+
+    var body: some View {
+        HStack {
+            Text(title)
+            Spacer()
+            Button(isRecording ? "Press a key…" : "\(prefix)\(binding.label)") {
+                startRecording()
+            }
+            .keyboardShortcut(.defaultAction)
+            .monospaced()
+            .accessibilityLabel("\(title) key")
+            .accessibilityValue("\(prefix)\(binding.label)")
+        }
+        .onDisappear(perform: stopRecording)
+    }
+
+    private func startRecording() {
+        stopRecording()
+        isRecording = true
+        monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { event in
+            binding = KeyBinding(event: event)
+            DispatchQueue.main.async {
+                stopRecording()
+            }
+            return nil
+        }
+    }
+
+    private func stopRecording() {
+        if let monitor {
+            NSEvent.removeMonitor(monitor)
+        }
+        monitor = nil
+        isRecording = false
     }
 }
 

@@ -24,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var aboutController: AboutWindowController!
     private var statusMenuController: StatusMenuController!
     private var globalShortcutController: GlobalShortcutController!
+    private var registeredGlobalToggle = KeyBinding.p
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         settingsStore = SettingsStore()
@@ -51,7 +52,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         globalShortcutController = GlobalShortcutController { [weak statusMenuController] in
             statusMenuController?.toggleActiveSurface()
         }
-        globalShortcutController.register()
+        registeredGlobalToggle = settingsStore.settings.controlBindings.globalToggle
+        globalShortcutController.register(binding: registeredGlobalToggle)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(settingsDidChange),
+            name: SettingsStore.didChangeNotification,
+            object: settingsStore
+        )
         configureMainMenu()
         if settingsStore.settings.presentationMode == .desktopOverlay {
             overlayController.showOverlay()
@@ -60,6 +68,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
+    }
+
+    @objc private func settingsDidChange() {
+        let globalToggle = settingsStore.settings.controlBindings.globalToggle
+        guard globalToggle != registeredGlobalToggle else { return }
+        registeredGlobalToggle = globalToggle
+        globalShortcutController.register(binding: globalToggle)
     }
 
     private func configureMainMenu() {
