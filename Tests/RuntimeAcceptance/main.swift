@@ -113,6 +113,12 @@ private final class RuntimeAcceptanceDelegate: NSObject, NSApplicationDelegate {
         record("Space behavior", overlay.joinsAllSpaces && overlay.supportsFullScreen && overlay.ignoresWindowCycle, "allSpaces=\(overlay.joinsAllSpaces), fullScreen=\(overlay.supportsFullScreen)")
         record("pass-through default", overlay.ignoresMouseEvents && !overlay.acceptsGameInput && !overlay.inputMonitorCapturing, "ignoresMouse=\(overlay.ignoresMouseEvents)")
         record("transparent SpriteKit view", overlay.hasSpriteView && overlay.spriteViewAllowsTransparency, "hasSKView=\(overlay.hasSpriteView), transparent=\(overlay.spriteViewAllowsTransparency)")
+        let visibleFrame = (NSScreen.main ?? NSScreen.screens[0]).visibleFrame
+        record(
+            "overlay leaves menu bar accessible",
+            overlay.frameOrigin == visibleFrame.origin && overlay.frameSize == visibleFrame.size,
+            "origin=\(overlay.frameOrigin), size=\(overlay.frameSize), visible=\(visibleFrame)"
+        )
 
         let scene = overlayController.scene.runtimeSnapshot()
         record("transparent scene", scene.backgroundAlpha == 0, "alpha=\(scene.backgroundAlpha)")
@@ -208,7 +214,7 @@ private final class RuntimeAcceptanceDelegate: NSObject, NSApplicationDelegate {
 
         NotificationCenter.default.post(name: NSApplication.didChangeScreenParametersNotification, object: nil)
         let displayNotificationSize = overlayController.scene.runtimeSnapshot().size
-        let expectedDisplaySize = (NSScreen.main ?? NSScreen.screens[0]).frame.size
+        let expectedDisplaySize = (NSScreen.main ?? NSScreen.screens[0]).visibleFrame.size
         record("display-change notification recovery", displayNotificationSize == expectedDisplaySize, "size=\(displayNotificationSize), expected=\(expectedDisplaySize)")
 
         runAuxiliaryWindowCycles()
