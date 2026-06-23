@@ -94,6 +94,10 @@ private func checkSpeedMapping() {
     expect(PongGameState.maximumBallSpeed(for: 1) == 1_600, "maximum speed cap should be 1600")
 }
 
+private func checkPlayableDefaults() {
+    expect(PongSettings.default.mode == .playerVsAI, "default mode should be playable with controls")
+}
+
 private func checkControlModes() {
     var settings = PongSettings.default
     let field = CGSize(width: 1_000, height: 700)
@@ -292,6 +296,7 @@ checkScoring()
 checkSweptPaddleCollision()
 checkResizeAndSettingsClamping()
 checkSpeedMapping()
+checkPlayableDefaults()
 checkControlModes()
 checkAIDifficultyChangesBehavior()
 checkAIStableTargetMemory()

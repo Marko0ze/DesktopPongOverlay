@@ -42,6 +42,11 @@ final class InputMonitor {
         self.mouseScreenY = mouseScreenY
     }
 
+    @discardableResult
+    func applyRuntimeTestKeyEvent(type: NSEvent.EventType, keyCode: UInt16) -> Bool {
+        handleKeyEvent(type: type, keyCode: keyCode)
+    }
+
     func snapshot(screenOriginY: CGFloat, settings: PongSettings) -> InputSnapshot {
         updateControlBindings(settings.controlBindings)
         let leftAxis = axis(
@@ -68,15 +73,9 @@ final class InputMonitor {
         guard isCapturingInput else { return event }
         switch event.type {
         case .keyDown:
-            if isGameKey(event.keyCode) {
-                pressedKeyCodes.insert(event.keyCode)
-                return nil
-            }
+            return handleKeyEvent(type: event.type, keyCode: event.keyCode) ? nil : event
         case .keyUp:
-            if isGameKey(event.keyCode) {
-                pressedKeyCodes.remove(event.keyCode)
-                return nil
-            }
+            return handleKeyEvent(type: event.type, keyCode: event.keyCode) ? nil : event
         case .mouseMoved, .leftMouseDragged:
             mouseScreenY = NSEvent.mouseLocation.y
         default:
@@ -87,5 +86,19 @@ final class InputMonitor {
 
     private func isGameKey(_ keyCode: UInt16) -> Bool {
         gameplayKeyCodes.contains(keyCode)
+    }
+
+    private func handleKeyEvent(type: NSEvent.EventType, keyCode: UInt16) -> Bool {
+        guard isCapturingInput, isGameKey(keyCode) else { return false }
+        switch type {
+        case .keyDown:
+            pressedKeyCodes.insert(keyCode)
+            return true
+        case .keyUp:
+            pressedKeyCodes.remove(keyCode)
+            return true
+        default:
+            return false
+        }
     }
 }

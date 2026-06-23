@@ -229,7 +229,13 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     @objc private func toggleMenuBarGame() {
         guard settingsStore.settings.presentationMode == .menuBarGame else {
             settingsStore.settings.presentationMode = .menuBarGame
+            if settingsStore.settings.mode == .demo {
+                settingsStore.settings.mode = .playerVsAI
+            }
             return
+        }
+        if settingsStore.settings.mode == .demo {
+            settingsStore.settings.mode = .playerVsAI
         }
         overlayController.hideOverlay()
         guard let button = statusItem.button else { return }
@@ -276,6 +282,9 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
             menuBarGameController.close()
             overlayController.showOverlay()
         case .menuBarGame:
+            if settingsStore.settings.mode == .demo {
+                settingsStore.settings.mode = .playerVsAI
+            }
             overlayController.hideOverlay()
             guard let button = statusItem.button else { return }
             menuBarGameController.show(relativeTo: button)
@@ -286,6 +295,10 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         guard let rawValue = sender.representedObject as? String,
               let mode = GameMode(rawValue: rawValue) else { return }
         settingsStore.settings.mode = mode
+        if mode != .demo, settingsStore.settings.presentationMode == .desktopOverlay {
+            overlayController.showOverlay()
+            settingsStore.settings.passThrough = false
+        }
     }
 
     @objc private func selectDifficulty(_ sender: NSMenuItem) {

@@ -27,6 +27,9 @@ final class MenuBarGameController: NSObject, NSPopoverDelegate {
             scene.setPaused(false)
             return
         }
+        if settingsStore.settings.mode == .demo {
+            settingsStore.settings.mode = .playerVsAI
+        }
         inputMonitor.start()
         inputMonitor.isCapturingInput = true
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)

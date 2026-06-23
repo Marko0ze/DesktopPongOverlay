@@ -169,9 +169,11 @@ private final class RuntimeAcceptanceDelegate: NSObject, NSApplicationDelegate {
         record("show overlay", overlayController.runtimeSnapshot().isVisible, "visible=\(overlayController.runtimeSnapshot().isVisible)")
         record("status menu show action", showActionSent, "sent=\(showActionSent)")
 
+        settingsStore.settings.mode = .demo
         let captureActionSent = statusMenuController.performRuntimeMenuAction(titled: "Capture Input")
         let captured = overlayController.runtimeSnapshot()
         record("capture input", !captured.ignoresMouseEvents && captured.acceptsMouseMovedEvents && captured.acceptsGameInput && captured.inputMonitorCapturing, "capture=\(captured.inputMonitorCapturing)")
+        record("capture enables playable controls", settingsStore.settings.mode == .playerVsAI, "mode=\(settingsStore.settings.mode.rawValue)")
         record("status menu capture action", captureActionSent, "sent=\(captureActionSent)")
         let passThroughActionSent = statusMenuController.performRuntimeMenuAction(titled: "Capture Input")
         record("restore pass-through", overlayController.runtimeSnapshot().ignoresMouseEvents, "ignoresMouse=\(overlayController.runtimeSnapshot().ignoresMouseEvents)")
@@ -234,11 +236,19 @@ private final class RuntimeAcceptanceDelegate: NSObject, NSApplicationDelegate {
         let before = overlayController.scene.runtimeSnapshot()
         inputMonitor.isCapturingInput = true
         inputMonitor.updateControlBindings(settingsStore.settings.controlBindings)
-        inputMonitor.applyRuntimeTestInput(pressedKeyCodes: [0, 15])
+        let leftKeyHandled = inputMonitor.applyRuntimeTestKeyEvent(type: .keyDown, keyCode: 0)
+        let rightKeyHandled = inputMonitor.applyRuntimeTestKeyEvent(type: .keyDown, keyCode: 15)
         overlayController.scene.update(ProcessInfo.processInfo.systemUptime + 1.0)
         overlayController.scene.update(ProcessInfo.processInfo.systemUptime + 1.05)
-        inputMonitor.applyRuntimeTestInput(pressedKeyCodes: [])
+        let leftKeyReleased = inputMonitor.applyRuntimeTestKeyEvent(type: .keyUp, keyCode: 0)
+        let rightKeyReleased = inputMonitor.applyRuntimeTestKeyEvent(type: .keyUp, keyCode: 15)
         let after = overlayController.scene.runtimeSnapshot()
+
+        record(
+            "remapped key events accepted",
+            leftKeyHandled && rightKeyHandled && leftKeyReleased && rightKeyReleased,
+            "leftDown=\(leftKeyHandled), rightDown=\(rightKeyHandled), leftUp=\(leftKeyReleased), rightUp=\(rightKeyReleased)"
+        )
 
         record(
             "remapped controls move paddles",

@@ -198,7 +198,7 @@ struct RGBAColor: Codable, Equatable, Sendable {
 }
 
 struct PongSettings: Codable, Equatable, Sendable {
-    var mode: GameMode = .demo
+    var mode: GameMode = .playerVsAI
     var presentationMode: PresentationMode = .desktopOverlay
     var materialStyle: PongMaterialStyle = .glass
     var glassQuality: GlassQuality = .rich

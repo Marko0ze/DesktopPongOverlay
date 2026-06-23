@@ -95,7 +95,14 @@ final class OverlayWindowController: NSWindowController {
     }
 
     func toggleInputCapture() {
-        settingsStore.settings.passThrough.toggle()
+        if settingsStore.settings.passThrough {
+            if settingsStore.settings.mode == .demo {
+                settingsStore.settings.mode = .playerVsAI
+            }
+            settingsStore.settings.passThrough = false
+        } else {
+            settingsStore.settings.passThrough = true
+        }
     }
 
     func runtimeSnapshot() -> OverlayRuntimeSnapshot {
