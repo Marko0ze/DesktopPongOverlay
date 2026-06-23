@@ -36,6 +36,12 @@ struct PreferencesView: View {
     let resetGame: () -> Void
     @State private var selection: SettingsSection? = .appearance
 
+    init(store: SettingsStore, resetGame: @escaping () -> Void) {
+        self.store = store
+        self.resetGame = resetGame
+        _selection = State(initialValue: SettingsSection.previewDefault)
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 8) {
@@ -261,6 +267,16 @@ struct PreferencesView: View {
             Slider(value: value, in: range)
                 .accessibilityLabel(title)
         }
+    }
+}
+
+private extension SettingsSection {
+    static var previewDefault: SettingsSection {
+        guard let rawValue = ProcessInfo.processInfo.environment["DESKTOP_PONG_SETTINGS_SECTION"],
+              let section = SettingsSection(rawValue: rawValue) else {
+            return .appearance
+        }
+        return section
     }
 }
 
