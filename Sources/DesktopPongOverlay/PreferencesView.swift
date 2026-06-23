@@ -139,11 +139,43 @@ struct PreferencesView: View {
                 }
             }
             .pickerStyle(.segmented)
-            KeyBindingRow(title: "Left Paddle Up", binding: $store.settings.controlBindings.leftUp)
-            KeyBindingRow(title: "Left Paddle Down", binding: $store.settings.controlBindings.leftDown)
+            KeyBindingRow(
+                title: "Left Paddle Up",
+                binding: $store.settings.controlBindings.leftUp,
+                reservedKeyCodes: Set([
+                    store.settings.controlBindings.leftDown.keyCode,
+                    store.settings.controlBindings.rightUp.keyCode,
+                    store.settings.controlBindings.rightDown.keyCode
+                ])
+            )
+            KeyBindingRow(
+                title: "Left Paddle Down",
+                binding: $store.settings.controlBindings.leftDown,
+                reservedKeyCodes: Set([
+                    store.settings.controlBindings.leftUp.keyCode,
+                    store.settings.controlBindings.rightUp.keyCode,
+                    store.settings.controlBindings.rightDown.keyCode
+                ])
+            )
             Divider()
-            KeyBindingRow(title: "Right Paddle Up", binding: $store.settings.controlBindings.rightUp)
-            KeyBindingRow(title: "Right Paddle Down", binding: $store.settings.controlBindings.rightDown)
+            KeyBindingRow(
+                title: "Right Paddle Up",
+                binding: $store.settings.controlBindings.rightUp,
+                reservedKeyCodes: Set([
+                    store.settings.controlBindings.leftUp.keyCode,
+                    store.settings.controlBindings.leftDown.keyCode,
+                    store.settings.controlBindings.rightDown.keyCode
+                ])
+            )
+            KeyBindingRow(
+                title: "Right Paddle Down",
+                binding: $store.settings.controlBindings.rightDown,
+                reservedKeyCodes: Set([
+                    store.settings.controlBindings.leftUp.keyCode,
+                    store.settings.controlBindings.leftDown.keyCode,
+                    store.settings.controlBindings.rightUp.keyCode
+                ])
+            )
             if store.settings.controlBindings.hasDuplicateGameplayKeys {
                 Label("Each gameplay action needs a unique key.", systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
@@ -299,29 +331,44 @@ private struct KeyBindingRow: View {
     let title: String
     @Binding var binding: KeyBinding
     var prefix = ""
+    var reservedKeyCodes = Set<UInt16>()
     @State private var isRecording = false
     @State private var monitor: Any?
+    @State private var errorMessage: String?
 
     var body: some View {
-        HStack {
-            Text(title)
-            Spacer()
-            Button(isRecording ? "Press a key…" : "\(prefix)\(binding.label)") {
-                startRecording()
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(title)
+                Spacer()
+                Button(isRecording ? "Press a key…" : "\(prefix)\(binding.label)") {
+                    startRecording()
+                }
+                .keyboardShortcut(.defaultAction)
+                .monospaced()
+                .accessibilityLabel("\(title) key")
+                .accessibilityValue("\(prefix)\(binding.label)")
             }
-            .keyboardShortcut(.defaultAction)
-            .monospaced()
-            .accessibilityLabel("\(title) key")
-            .accessibilityValue("\(prefix)\(binding.label)")
+            if let errorMessage {
+                Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
         }
         .onDisappear(perform: stopRecording)
     }
 
     private func startRecording() {
         stopRecording()
+        errorMessage = nil
         isRecording = true
         monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { event in
-            binding = KeyBinding(event: event)
+            let candidate = KeyBinding(event: event)
+            if reservedKeyCodes.contains(candidate.keyCode) {
+                errorMessage = "\(candidate.label) is already assigned to another paddle action."
+            } else {
+                binding = candidate
+            }
             DispatchQueue.main.async {
                 stopRecording()
             }
