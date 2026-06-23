@@ -1,0 +1,86 @@
+import AppKit
+
+@main
+@MainActor
+enum DesktopPongApp {
+    static func main() {
+        let application = NSApplication.shared
+        let delegate = AppDelegate()
+        application.delegate = delegate
+        application.setActivationPolicy(.regular)
+        application.run()
+        withExtendedLifetime(delegate) {}
+    }
+}
+
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    private var settingsStore: SettingsStore!
+    private var inputMonitor: InputMonitor!
+    private var overlayController: OverlayWindowController!
+    private var preferencesController: PreferencesWindowController!
+    private var aboutController: AboutWindowController!
+    private var statusMenuController: StatusMenuController!
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        settingsStore = SettingsStore()
+        inputMonitor = InputMonitor()
+        overlayController = OverlayWindowController(settingsStore: settingsStore, inputMonitor: inputMonitor)
+        preferencesController = PreferencesWindowController(
+            settingsStore: settingsStore,
+            resetGame: { [weak overlayController] in overlayController?.resetGame() }
+        )
+        aboutController = AboutWindowController()
+        statusMenuController = StatusMenuController(
+            overlayController: overlayController,
+            settingsStore: settingsStore,
+            preferencesController: preferencesController,
+            aboutController: aboutController
+        )
+        configureMainMenu()
+        overlayController.showOverlay()
+    }
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        false
+    }
+
+    private func configureMainMenu() {
+        let mainMenu = NSMenu()
+        let appMenuItem = NSMenuItem()
+        let appMenu = NSMenu(title: "Desktop Pong Overlay")
+        let settingsItem = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
+        settingsItem.target = self
+        appMenu.addItem(settingsItem)
+        let aboutItem = NSMenuItem(title: "About Desktop Pong Overlay", action: #selector(openAbout), keyEquivalent: "")
+        aboutItem.target = self
+        appMenu.addItem(aboutItem)
+        appMenu.addItem(.separator())
+        appMenu.addItem(withTitle: "Quit Desktop Pong Overlay", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenuItem.submenu = appMenu
+        mainMenu.addItem(appMenuItem)
+
+        let gameMenuItem = NSMenuItem()
+        let gameMenu = NSMenu(title: "Game")
+        gameMenu.addItem(commandItem("Show/Hide Overlay", action: #selector(toggleOverlay), key: "h"))
+        gameMenu.addItem(commandItem("Pause/Resume", action: #selector(togglePause), key: "p"))
+        gameMenu.addItem(commandItem("Reset Score", action: #selector(resetScore), key: "r"))
+        gameMenu.addItem(commandItem("Capture Input", action: #selector(toggleCapture), key: "i"))
+        gameMenuItem.submenu = gameMenu
+        mainMenu.addItem(gameMenuItem)
+        NSApp.mainMenu = mainMenu
+    }
+
+    private func commandItem(_ title: String, action: Selector, key: String) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
+        item.target = self
+        return item
+    }
+
+    @objc private func openSettings() { preferencesController.present() }
+    @objc private func openAbout() { aboutController.present() }
+    @objc private func toggleOverlay() { overlayController.toggleOverlay() }
+    @objc private func togglePause() { overlayController.togglePause() }
+    @objc private func resetScore() { overlayController.resetGame() }
+    @objc private func toggleCapture() { overlayController.toggleInputCapture() }
+}
