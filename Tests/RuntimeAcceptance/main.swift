@@ -40,6 +40,7 @@ private final class RuntimeAcceptanceDelegate: NSObject, NSApplicationDelegate {
     private var passThroughProbeController: PassThroughProbeWindowController!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.activate(ignoringOtherApps: true)
         let suiteName = "DesktopPongRuntimeAcceptance.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
@@ -172,7 +173,12 @@ private final class RuntimeAcceptanceDelegate: NSObject, NSApplicationDelegate {
         settingsStore.settings.mode = .demo
         let captureActionSent = statusMenuController.performRuntimeMenuAction(titled: "Capture Input")
         let captured = overlayController.runtimeSnapshot()
-        record("capture input", !captured.ignoresMouseEvents && captured.acceptsMouseMovedEvents && captured.acceptsGameInput && captured.inputMonitorCapturing, "capture=\(captured.inputMonitorCapturing)")
+        record(
+            "capture input",
+            captured.ignoresMouseEvents && !captured.acceptsMouseMovedEvents && captured.acceptsGameInput && captured.inputMonitorCapturing,
+            "ignoresMouse=\(captured.ignoresMouseEvents), capture=\(captured.inputMonitorCapturing)"
+        )
+        record("capture keeps desktop clickable", captured.ignoresMouseEvents, "ignoresMouse=\(captured.ignoresMouseEvents)")
         record("capture enables playable controls", settingsStore.settings.mode == .playerVsAI, "mode=\(settingsStore.settings.mode.rawValue)")
         record("status menu capture action", captureActionSent, "sent=\(captureActionSent)")
         let passThroughActionSent = statusMenuController.performRuntimeMenuAction(titled: "Capture Input")
@@ -270,9 +276,12 @@ private final class RuntimeAcceptanceDelegate: NSObject, NSApplicationDelegate {
     private func runAuxiliaryWindowCycles() {
         var settingsCyclesPassed = true
         var aboutCyclesPassed = true
+        var settingsReleasedCapture = false
         for cycle in 0 ..< 3 {
             if cycle == 0 {
                 settingsCyclesPassed = statusMenuController.performRuntimeMenuAction(titled: "Settings…")
+                let overlay = overlayController.runtimeSnapshot()
+                settingsReleasedCapture = overlay.ignoresMouseEvents && !overlay.inputMonitorCapturing
             } else {
                 preferencesController.present()
             }
@@ -290,6 +299,7 @@ private final class RuntimeAcceptanceDelegate: NSObject, NSApplicationDelegate {
             aboutCyclesPassed = aboutCyclesPassed && (aboutController.window?.isVisible == false)
         }
         record("Settings open-close cycles", settingsCyclesPassed, "three cycles")
+        record("Settings releases overlay capture", settingsReleasedCapture, "released=\(settingsReleasedCapture)")
         record("About open-close cycles", aboutCyclesPassed, "three cycles")
         record("overlay survives auxiliary windows", overlayController.scene.view != nil && !overlayController.scene.isGamePaused, "scene attached and running")
     }

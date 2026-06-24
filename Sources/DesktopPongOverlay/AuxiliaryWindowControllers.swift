@@ -10,6 +10,7 @@ final class PreferencesWindowController: NSWindowController {
         window.styleMask = [.titled, .closable, .miniaturizable]
         window.setContentSize(NSSize(width: 500, height: 650))
         window.minSize = NSSize(width: 460, height: 520)
+        window.level = .floating
         window.isReleasedWhenClosed = false
         window.center()
         super.init(window: window)
@@ -49,6 +50,7 @@ final class AboutWindowController: NSWindowController {
         let window = NSWindow(contentViewController: NSHostingController(rootView: view))
         window.title = "About Desktop Pong Overlay"
         window.styleMask = [.titled, .closable]
+        window.level = .floating
         window.isReleasedWhenClosed = false
         window.center()
         super.init(window: window)

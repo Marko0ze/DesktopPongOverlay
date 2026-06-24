@@ -32,6 +32,7 @@ The staged app contains both arm64 and x86_64 slices.
 - Demo mode: AI plays both paddles.
 - Player vs AI: choose **Capture Input**, then use the configured keyboard controls or mouse.
 - Two Player: choose **Capture Input**; each paddle uses its configured up/down keys.
+- In Desktop Overlay mode, **Capture Input** keeps ordinary mouse clicks passing through to your Mac; opening Settings/About releases keyboard capture too.
 - Settings → Controls lets you remap left paddle, right paddle, and the global toggle key.
 - Presentation: choose **Desktop Overlay** for full-screen transparent Pong, or **Menu Bar Game** for a compact popover game from the menu-bar icon.
 - Global shortcut: Option-Command plus the configured global toggle key opens the active game surface from anywhere.
@@ -48,7 +49,7 @@ The staged app contains both arm64 and x86_64 slices.
 
 ## Privacy
 
-The app does not record the screen, take screenshots, use the network, collect analytics, or install global input monitors. Keyboard and mouse events are read locally only while **Capture Input** is explicitly enabled.
+The app does not record the screen, take screenshots, use the network, collect analytics, or install global input monitors. Keyboard input and pointer position are read locally only while **Capture Input** is explicitly enabled.
 The global shortcut is registered with macOS as a hotkey; it does not inspect typed text.
 
 ## Packaging

@@ -110,8 +110,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return item
     }
 
-    @objc private func openSettings() { preferencesController.present() }
-    @objc private func openAbout() { aboutController.present() }
+    @objc private func openSettings() {
+        overlayController.setInputCapture(false)
+        preferencesController.present()
+    }
+
+    @objc private func openAbout() {
+        overlayController.setInputCapture(false)
+        aboutController.present()
+    }
     @objc private func toggleOverlay() { overlayController.toggleOverlay() }
     @objc private func toggleMenuBarGame() {
         let title = menuBarGameController.isShown ? "Close Menu Bar Game" : "Open Menu Bar Game"

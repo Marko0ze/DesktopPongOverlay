@@ -258,8 +258,15 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     }
 
     @objc private func toggleCapture() { overlayController.toggleInputCapture() }
-    @objc private func openPreferences() { preferencesController.present() }
-    @objc private func openAbout() { aboutController.present() }
+    @objc private func openPreferences() {
+        overlayController.setInputCapture(false)
+        preferencesController.present()
+    }
+
+    @objc private func openAbout() {
+        overlayController.setInputCapture(false)
+        aboutController.present()
+    }
     @objc private func quit() { NSApp.terminate(nil) }
 
     @objc private func selectPresentation(_ sender: NSMenuItem) {

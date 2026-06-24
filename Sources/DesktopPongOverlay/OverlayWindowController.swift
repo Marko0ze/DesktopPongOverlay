@@ -95,7 +95,11 @@ final class OverlayWindowController: NSWindowController {
     }
 
     func toggleInputCapture() {
-        if settingsStore.settings.passThrough {
+        setInputCapture(settingsStore.settings.passThrough)
+    }
+
+    func setInputCapture(_ enabled: Bool) {
+        if enabled {
             if settingsStore.settings.mode == .demo {
                 settingsStore.settings.mode = .playerVsAI
             }
@@ -156,8 +160,8 @@ final class OverlayWindowController: NSWindowController {
     private func applyPassThroughSetting() {
         let capturesInput = !settingsStore.settings.passThrough
         overlayPanel.acceptsGameInput = capturesInput
-        overlayPanel.ignoresMouseEvents = !capturesInput
-        overlayPanel.acceptsMouseMovedEvents = capturesInput
+        overlayPanel.ignoresMouseEvents = true
+        overlayPanel.acceptsMouseMovedEvents = false
         inputMonitor.isCapturingInput = capturesInput
 
         if capturesInput {

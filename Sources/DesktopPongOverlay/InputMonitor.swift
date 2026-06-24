@@ -57,11 +57,17 @@ final class InputMonitor {
             negativeKey: settings.controlBindings.rightDown.keyCode,
             positiveKey: settings.controlBindings.rightUp.keyCode
         )
-        let localMouseY = mouseScreenY.map { $0 - screenOriginY }
+        let shouldSampleMouse = isCapturingInput
+            && settings.mode == .playerVsAI
+            && settings.playerControlMode != .keyboardOnly
+        if shouldSampleMouse {
+            mouseScreenY = NSEvent.mouseLocation.y
+        }
+        let localMouseY = shouldSampleMouse ? mouseScreenY.map { $0 - screenOriginY } : nil
         return InputSnapshot(
             leftAxis: leftAxis,
             rightAxis: rightAxis,
-            mouseY: isCapturingInput ? localMouseY : nil
+            mouseY: localMouseY
         )
     }
 

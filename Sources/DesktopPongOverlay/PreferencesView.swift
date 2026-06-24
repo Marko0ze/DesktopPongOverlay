@@ -203,7 +203,7 @@ struct PreferencesView: View {
                     store.settings.playerControlMode = .keyboardAndMouse
                 }
             }
-            Text("Desktop Overlay only listens while Capture Input is enabled. Menu Bar Game listens while its popover is open.")
+            Text("Desktop Overlay only listens while Capture Input is enabled. Mouse clicks still pass through; opening Settings releases keyboard capture.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
