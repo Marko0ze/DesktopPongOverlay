@@ -45,6 +45,7 @@ The staged app contains both arm64 and x86_64 slices.
 - Settings → Appearance controls Liquid Glass, Full Liquid Glass, Clear, and Frosted modes.
 - Full Liquid Glass uses native SpriteKit layers for whole-capsule lens paddles inspired by the cloned `dashersw/liquid-glass-js` reference, without text or copied assets.
 - Liquid Glass uses native SpriteKit layers for object-local depth, rim light, glow, and specular highlights; paddle inner specular bars are intentionally removed.
+- Advanced Liquid Glass Controls expose edge, rim, base, distance, corner, ripple, blur, tint, and centre-warp tuning in Settings while keeping the no-screen-recording rendering model.
 - Paddle Fill can be switched to **Transparent** to keep the paddle bodies clear while retaining coloured rim/glow/specular cues.
 - The app does not sample the desktop for live refraction, preserving the no-screen-recording privacy model.
 - Reference provenance is tracked in `docs/reference-provenance.md`; external repositories were used as inspiration only.

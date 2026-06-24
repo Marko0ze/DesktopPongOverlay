@@ -265,41 +265,49 @@ final class PongScene: SKScene {
     ) {
         let opacity = CGFloat(settings.objectOpacity)
         let qualityMultiplier = glassQualityMultiplier(settings.glassQuality)
+        let edgeIntensity = CGFloat(settings.glassEdgeIntensity) * qualityMultiplier
         let rimAlpha = CGFloat(settings.glassRimIntensity) * opacity * qualityMultiplier
+        let baseIntensity = CGFloat(settings.glassBaseIntensity) * qualityMultiplier
         let specularAlpha = CGFloat(settings.glassSpecularIntensity) * opacity * qualityMultiplier
-        let depth = CGFloat(settings.glassDepth) * qualityMultiplier
-        let outlineAlpha = transparentOutlineBoost ? opacity * 0.72 : opacity * 0.35
+        let depth = CGFloat(settings.glassDepth) * CGFloat(settings.glassBaseDistance) * qualityMultiplier
+        let edgeDistance = CGFloat(settings.glassEdgeDistance)
+        let rimDistance = CGFloat(settings.glassRimDistance)
+        let cornerBoost = isPaddle ? CGFloat(settings.glassCornerBoost) * CGFloat(settings.paddleRoundness) : CGFloat(settings.glassCornerBoost)
+        let blurRadius = CGFloat(settings.glassBlurRadius)
+        let tintOpacity = CGFloat(settings.glassTintOpacity)
+        let warpBoost: CGFloat = settings.glassCenterWarpEnabled ? 1.0 : 0.72
+        let outlineAlpha = transparentOutlineBoost ? opacity * (0.58 + edgeIntensity * 0.34) : opacity * (0.18 + edgeIntensity * 0.34)
         let frostedOutlineAlpha = transparentOutlineBoost ? opacity * 0.80 : opacity * 0.5
         switch settings.materialStyle {
         case .glass:
-            base.fillColor = color.withAlphaComponent(opacity * (0.42 + depth * 0.22) * fillAlphaScale)
+            base.fillColor = color.withAlphaComponent(opacity * (0.26 + tintOpacity * 0.78 + depth * 0.18) * baseIntensity * fillAlphaScale)
             base.strokeColor = color.blended(withFraction: 0.40, of: .white)?.withAlphaComponent(outlineAlpha) ?? color
-            base.lineWidth = transparentOutlineBoost ? 1.15 : 0.8
-            base.glowWidth = settings.glowStrength * (8 + depth * 10) * (transparentOutlineBoost ? 1.18 : 1)
+            base.lineWidth = (transparentOutlineBoost ? 0.95 : 0.55) + edgeDistance * 1.15 + cornerBoost * 0.55
+            base.glowWidth = settings.glowStrength * (blurRadius + depth * 10 + edgeIntensity * 5) * (transparentOutlineBoost ? 1.18 : 1)
             rim.fillColor = .clear
             rim.strokeColor = rimColor.withAlphaComponent(min(1, rimAlpha * (transparentOutlineBoost ? 1.16 : 1)))
-            rim.lineWidth = 1.4 + depth * 1.6 + (transparentOutlineBoost ? 0.35 : 0)
-            rim.glowWidth = settings.glowStrength * 4 * qualityMultiplier * (transparentOutlineBoost ? 1.25 : 1)
+            rim.lineWidth = 0.8 + rimDistance * 2.3 + depth * 0.9 + cornerBoost * 0.6 + (transparentOutlineBoost ? 0.35 : 0)
+            rim.glowWidth = settings.glowStrength * (1.4 + blurRadius) * qualityMultiplier * (transparentOutlineBoost ? 1.25 : 1)
             specular.fillColor = NSColor.white.withAlphaComponent(specularAlpha * 0.75)
-            specular.strokeColor = NSColor.white.withAlphaComponent(specularAlpha * 0.35)
-            specular.lineWidth = 0.5
-            specular.glowWidth = settings.glowStrength * 3 * qualityMultiplier
+            specular.strokeColor = NSColor.white.withAlphaComponent(specularAlpha * 0.35 * warpBoost)
+            specular.lineWidth = 0.35 + edgeDistance * 0.55
+            specular.glowWidth = settings.glowStrength * (1.2 + blurRadius * 0.55) * qualityMultiplier
             rim.isHidden = settings.glassQuality == .performance
             specular.isHidden = isPaddle || settings.glassQuality == .performance
         case .fullGlass:
             let lensFillScale = max(fillAlphaScale, settings.paddleGlassFill == .transparent ? 0.35 : 1)
-            base.fillColor = color.withAlphaComponent(opacity * (0.10 + depth * 0.18) * lensFillScale)
-            base.strokeColor = NSColor.white.withAlphaComponent(opacity * (0.58 + depth * 0.24))
-            base.lineWidth = 1.15 + depth * 0.55
-            base.glowWidth = settings.glowStrength * (10 + depth * 13)
+            base.fillColor = color.withAlphaComponent(opacity * (0.05 + tintOpacity * 0.52 + depth * 0.16) * max(0.35, baseIntensity) * lensFillScale)
+            base.strokeColor = NSColor.white.withAlphaComponent(opacity * (0.32 + edgeIntensity * 0.48 + depth * 0.20))
+            base.lineWidth = 0.9 + edgeDistance * 1.5 + cornerBoost * 0.6
+            base.glowWidth = settings.glowStrength * (blurRadius + 4 + depth * 13 + edgeIntensity * 5)
             rim.fillColor = .clear
             rim.strokeColor = rimColor.withAlphaComponent(min(1, rimAlpha * 1.35 + 0.16))
-            rim.lineWidth = 2.0 + depth * 2.1
-            rim.glowWidth = settings.glowStrength * 6.5 * qualityMultiplier
+            rim.lineWidth = 1.0 + rimDistance * 3.1 + depth * 1.2 + cornerBoost * 0.7
+            rim.glowWidth = settings.glowStrength * (2.3 + blurRadius * 1.05) * qualityMultiplier
             specular.fillColor = .clear
-            specular.strokeColor = NSColor.white.withAlphaComponent(specularAlpha * 0.55)
-            specular.lineWidth = 0.9
-            specular.glowWidth = settings.glowStrength * 4.5 * qualityMultiplier
+            specular.strokeColor = NSColor.white.withAlphaComponent(specularAlpha * 0.55 * warpBoost)
+            specular.lineWidth = 0.55 + edgeDistance * 0.9
+            specular.glowWidth = settings.glowStrength * (1.2 + blurRadius * 0.78) * qualityMultiplier
             rim.isHidden = settings.glassQuality == .performance
             specular.isHidden = settings.glassQuality == .performance
         case .clear:
@@ -424,15 +432,16 @@ final class PongScene: SKScene {
 
     private func spawnRipple(at position: CGPoint, strength: CGFloat) {
         let ripple = SKShapeNode(circleOfRadius: 8)
+        let rippleEffect = CGFloat(settingsStore.settings.glassRippleEffect)
         ripple.position = position
         ripple.zPosition = 1
         ripple.fillColor = .clear
-        ripple.strokeColor = NSColor.white.withAlphaComponent(0.55)
-        ripple.lineWidth = 1.5
+        ripple.strokeColor = NSColor.white.withAlphaComponent(0.25 + rippleEffect * 0.55)
+        ripple.lineWidth = 0.8 + rippleEffect * 2.0
         addChild(ripple)
         ripple.run(.sequence([
             .group([
-                .scale(to: 2.2 + strength * 3, duration: 0.14),
+                .scale(to: 1.4 + rippleEffect * 1.4 + strength * 3, duration: 0.14 + rippleEffect * 0.08),
                 .fadeOut(withDuration: 0.14)
             ]),
             .removeFromParent()

@@ -116,6 +116,9 @@ struct PreferencesView: View {
                 }
             }
             .pickerStyle(.segmented)
+            if store.settings.materialStyle.isLiquidGlass {
+                advancedLiquidGlassControls
+            }
             ColorPicker("Player Paddle", selection: colorBinding(\.playerPaddleColor))
             ColorPicker("AI Paddle", selection: colorBinding(\.aiPaddleColor))
             Picker("Paddle Fill", selection: $store.settings.paddleGlassFill) {
@@ -131,11 +134,51 @@ struct PreferencesView: View {
             ColorPicker("Score", selection: colorBinding(\.scoreColor))
             valueSlider("Object Opacity", value: $store.settings.objectOpacity, range: 0.2 ... 1, format: .percent)
             valueSlider("Glow", value: $store.settings.glowStrength, range: 0 ... 1, format: .percent)
-            valueSlider("Rim Intensity", value: $store.settings.glassRimIntensity, range: 0 ... 1, format: .percent)
             valueSlider("Specular Highlight", value: $store.settings.glassSpecularIntensity, range: 0 ... 1, format: .percent)
             valueSlider("Glass Depth", value: $store.settings.glassDepth, range: 0 ... 1, format: .percent)
         }
         .settingsCard()
+    }
+
+    private var advancedLiquidGlassControls: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Liquid Glass Controls", systemImage: "slider.horizontal.3")
+                .font(.headline)
+            VStack(alignment: .leading, spacing: 12) {
+                valueSlider("Edge Intensity", value: $store.settings.glassEdgeIntensity, range: 0 ... 1, format: .decimal(2))
+                valueSlider("Rim Intensity", value: $store.settings.glassRimIntensity, range: 0 ... 1, format: .decimal(2))
+                valueSlider("Base Intensity", value: $store.settings.glassBaseIntensity, range: 0 ... 1, format: .decimal(2))
+                valueSlider("Edge Distance", value: $store.settings.glassEdgeDistance, range: 0 ... 1, format: .decimal(2))
+                valueSlider("Rim Distance", value: $store.settings.glassRimDistance, range: 0 ... 1, format: .decimal(2))
+                valueSlider("Base Distance", value: $store.settings.glassBaseDistance, range: 0 ... 1, format: .decimal(2))
+                valueSlider("Corner Boost", value: $store.settings.glassCornerBoost, range: 0 ... 1, format: .decimal(2))
+                valueSlider("Ripple Effect", value: $store.settings.glassRippleEffect, range: 0 ... 1, format: .decimal(2))
+                valueSlider("Blur Radius", value: $store.settings.glassBlurRadius, range: 0 ... 12, format: .decimal(1))
+                valueSlider("Tint Opacity", value: $store.settings.glassTintOpacity, range: 0 ... 1, format: .decimal(2))
+                Toggle("Enable Centre Warp", isOn: $store.settings.glassCenterWarpEnabled)
+                    .toggleStyle(.checkbox)
+                HStack {
+                    Spacer()
+                    Button("Reset Glass Controls") {
+                        let defaults = PongSettings.default
+                        store.settings.glassEdgeIntensity = defaults.glassEdgeIntensity
+                        store.settings.glassRimIntensity = defaults.glassRimIntensity
+                        store.settings.glassBaseIntensity = defaults.glassBaseIntensity
+                        store.settings.glassEdgeDistance = defaults.glassEdgeDistance
+                        store.settings.glassRimDistance = defaults.glassRimDistance
+                        store.settings.glassBaseDistance = defaults.glassBaseDistance
+                        store.settings.glassCornerBoost = defaults.glassCornerBoost
+                        store.settings.glassRippleEffect = defaults.glassRippleEffect
+                        store.settings.glassBlurRadius = defaults.glassBlurRadius
+                        store.settings.glassTintOpacity = defaults.glassTintOpacity
+                        store.settings.glassCenterWarpEnabled = defaults.glassCenterWarpEnabled
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .accessibilityLabel("Advanced Liquid Glass Controls")
     }
 
     private var controlsSettings: some View {
@@ -511,11 +554,13 @@ private struct CircleOrCapsuleStroke: View {
 private enum SliderValueFormat {
     case percent
     case pixels
+    case decimal(Int)
 
     func text(_ value: Double) -> String {
         switch self {
         case .percent: "\(Int((value * 100).rounded()))%"
         case .pixels: "\(Int(value.rounded())) px"
+        case .decimal(let places): String(format: "%.\(places)f", value)
         }
     }
 }
@@ -585,14 +630,17 @@ private struct SettingsPreviewView: View {
             .overlay(fullLensHighlight)
             .shadow(
                 color: Color(nsColor: color).opacity(settings.glowStrength * (settings.paddleGlassFill == .transparent ? 1.18 : 1)),
-                radius: settings.glowStrength * 10
+                radius: settings.glowStrength * (settings.glassBlurRadius + 6)
             )
     }
 
     @ViewBuilder private var fullLensHighlight: some View {
         if settings.materialStyle == .fullGlass && settings.glassQuality != .performance {
             RoundedRectangle(cornerRadius: previewPaddleWidth * settings.paddleRoundness / 2)
-                .stroke(.white.opacity(settings.glassSpecularIntensity * 0.45), lineWidth: 0.9)
+                .stroke(
+                    .white.opacity(settings.glassSpecularIntensity * (settings.glassCenterWarpEnabled ? 0.45 : 0.28)),
+                    lineWidth: 0.55 + settings.glassEdgeDistance * 0.9
+                )
                 .allowsHitTesting(false)
         }
     }
@@ -600,9 +648,11 @@ private struct SettingsPreviewView: View {
     private func paddleFill(color: NSColor) -> Color {
         let base = Color(nsColor: color)
         let fillScale = settings.paddleGlassFill.fillAlphaScale
+        let baseLevel = max(0.18, settings.glassBaseIntensity)
+        let tintLevel = 0.12 + settings.glassTintOpacity * 0.88
         return switch settings.materialStyle {
-        case .glass: base.opacity(settings.objectOpacity * 0.62 * fillScale)
-        case .fullGlass: base.opacity(settings.objectOpacity * 0.24 * max(fillScale, 0.35))
+        case .glass: base.opacity(settings.objectOpacity * 0.62 * baseLevel * tintLevel * fillScale)
+        case .fullGlass: base.opacity(settings.objectOpacity * 0.24 * baseLevel * tintLevel * max(fillScale, 0.35))
         case .clear: base.opacity(settings.objectOpacity * fillScale)
         case .frosted: base.opacity(settings.objectOpacity * 0.74 * fillScale)
         }
@@ -612,7 +662,7 @@ private struct SettingsPreviewView: View {
         if settings.paddleGlassFill == .transparent {
             Color(nsColor: color).opacity(settings.objectOpacity * 0.82)
         } else {
-            .white.opacity(settings.materialStyle == .glass || settings.materialStyle == .fullGlass ? 0.72 : 0.30)
+            .white.opacity(settings.materialStyle == .glass || settings.materialStyle == .fullGlass ? 0.32 + settings.glassEdgeIntensity * 0.50 : 0.30)
         }
     }
 

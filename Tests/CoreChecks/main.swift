@@ -79,10 +79,16 @@ private func checkResizeAndSettingsClamping() {
     settings.ballSize = 1_000
     settings.aiSkill = -1
     settings.objectOpacity = 2
+    settings.glassEdgeIntensity = -1
+    settings.glassBlurRadius = 99
+    settings.glassTintOpacity = 2
     settings.clamp()
     expect(settings.ballSize == 36, "ball size should clamp to its maximum")
     expect(settings.aiSkill == 0, "AI skill should clamp to zero")
     expect(settings.objectOpacity == 1, "opacity should clamp to one")
+    expect(settings.glassEdgeIntensity == 0, "glass edge intensity should clamp to zero")
+    expect(settings.glassBlurRadius == 12, "glass blur radius should clamp to its maximum")
+    expect(settings.glassTintOpacity == 1, "glass tint opacity should clamp to one")
 }
 
 private func checkSpeedMapping() {
@@ -279,6 +285,10 @@ private func checkSettingsPersistence() {
         firstStore.settings.materialStyle = .frosted
         firstStore.settings.glassQuality = .balanced
         firstStore.settings.paddleGlassFill = .transparent
+        firstStore.settings.glassEdgeIntensity = 0.23
+        firstStore.settings.glassBaseIntensity = 0.34
+        firstStore.settings.glassBlurRadius = 7.5
+        firstStore.settings.glassCenterWarpEnabled = false
         firstStore.settings.controlBindings.leftUp = KeyBinding(keyCode: 0, label: "A")
 
         let restoredStore = SettingsStore(defaults: defaults)
@@ -287,6 +297,10 @@ private func checkSettingsPersistence() {
         expect(restoredStore.settings.materialStyle == .frosted, "material style should survive relaunch")
         expect(restoredStore.settings.glassQuality == .balanced, "glass quality should survive relaunch")
         expect(restoredStore.settings.paddleGlassFill == .transparent, "transparent paddle fill should survive relaunch")
+        expect(restoredStore.settings.glassEdgeIntensity == 0.23, "glass edge intensity should survive relaunch")
+        expect(restoredStore.settings.glassBaseIntensity == 0.34, "glass base intensity should survive relaunch")
+        expect(restoredStore.settings.glassBlurRadius == 7.5, "glass blur radius should survive relaunch")
+        expect(!restoredStore.settings.glassCenterWarpEnabled, "glass centre warp toggle should survive relaunch")
         expect(restoredStore.settings.controlBindings.leftUp.keyCode == 0, "custom control binding should survive relaunch")
 
         restoredStore.resetToDefaults()
