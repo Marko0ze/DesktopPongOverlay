@@ -140,6 +140,15 @@ private func checkControlModes() {
     )
     expect(playerVsAI.leftPaddleY < keyboardStart, "W/S keyboard input should override stale mouse position")
 
+    let arrowKeyStart = playerVsAI.leftPaddleY
+    playerVsAI.update(
+        deltaTime: 1.0 / 30.0,
+        input: InputSnapshot(rightAxis: 1),
+        settings: settings,
+        randomUnit: { 0.5 }
+    )
+    expect(playerVsAI.leftPaddleY > arrowKeyStart, "Up arrow input should move the player paddle in Player vs AI")
+
     settings.playerControlMode = .mouseOnly
     let mouseOnlyStart = playerVsAI.leftPaddleY
     playerVsAI.update(

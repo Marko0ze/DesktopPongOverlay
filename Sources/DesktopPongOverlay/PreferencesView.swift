@@ -203,7 +203,7 @@ struct PreferencesView: View {
                     store.settings.playerControlMode = .keyboardAndMouse
                 }
             }
-            Text("Desktop Overlay only listens while Capture Input is enabled. Mouse clicks still pass through; opening Settings releases keyboard capture.")
+            Text("Player vs AI accepts W/S or Up/Down arrows by default. Mouse clicks still pass through; opening Settings releases keyboard capture.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

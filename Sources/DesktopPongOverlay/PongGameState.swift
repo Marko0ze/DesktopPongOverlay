@@ -123,9 +123,10 @@ struct PongGameState: Sendable {
             moveAI(side: .left, dt: dt, settings: settings, randomUnit: randomUnit)
             moveAI(side: .right, dt: dt, settings: settings, randomUnit: randomUnit)
         case .playerVsAI:
+            let keyboardAxis = (input.leftAxis + input.rightAxis).clamped(to: -1 ... 1)
             switch settings.playerControlMode {
             case .keyboardOnly:
-                leftPaddleY += input.leftAxis * playerSpeed * dt
+                leftPaddleY += keyboardAxis * playerSpeed * dt
             case .mouseOnly:
                 if let mouseY = input.mouseY {
                     leftPaddleY = moveToward(
@@ -135,8 +136,8 @@ struct PongGameState: Sendable {
                     )
                 }
             case .keyboardAndMouse:
-                if input.leftAxis != 0 {
-                    leftPaddleY += input.leftAxis * playerSpeed * dt
+                if keyboardAxis != 0 {
+                    leftPaddleY += keyboardAxis * playerSpeed * dt
                 } else if let mouseY = input.mouseY {
                     leftPaddleY = moveToward(
                         current: leftPaddleY,
