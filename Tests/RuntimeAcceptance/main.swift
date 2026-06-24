@@ -331,6 +331,25 @@ private final class RuntimeAcceptanceDelegate: NSObject, NSApplicationDelegate {
             after.leftPaddleFillAlpha == 0 && after.rightPaddleFillAlpha == 0,
             "leftAlpha=\(after.leftPaddleFillAlpha), rightAlpha=\(after.rightPaddleFillAlpha)"
         )
+        record(
+            "paddle inner specular bars removed",
+            !after.leftPaddleSpecularVisible && !after.rightPaddleSpecularVisible,
+            "leftSpecular=\(after.leftPaddleSpecularVisible), rightSpecular=\(after.rightPaddleSpecularVisible)"
+        )
+
+        settingsStore.settings.materialStyle = .fullGlass
+        settingsStore.settings.paddleGlassFill = .tinted
+        overlayController.scene.update(ProcessInfo.processInfo.systemUptime + 1.10)
+        let fullGlass = overlayController.scene.runtimeSnapshot()
+        record(
+            "full liquid glass option renders lens paddles",
+            fullGlass.liquidGlassRimVisible
+                && fullGlass.liquidGlassSpecularVisible
+                && fullGlass.leftPaddleSpecularVisible
+                && fullGlass.rightPaddleSpecularVisible
+                && fullGlass.leftPaddleFillAlpha > 0,
+            "rim=\(fullGlass.liquidGlassRimVisible), specular=\(fullGlass.liquidGlassSpecularVisible), leftPaddleSpecular=\(fullGlass.leftPaddleSpecularVisible), rightPaddleSpecular=\(fullGlass.rightPaddleSpecularVisible), leftAlpha=\(fullGlass.leftPaddleFillAlpha)"
+        )
     }
 
     private func runAuxiliaryWindowCycles() {

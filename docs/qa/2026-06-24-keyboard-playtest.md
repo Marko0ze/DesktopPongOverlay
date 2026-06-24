@@ -88,3 +88,15 @@ When holding ↓, expected status is:
 - `Capture ON · keyboard polling fallback · ↓`
 
 If the status remains `no key` while physically holding ↑/↓, the remaining macOS-level fallback is to grant Accessibility access to Desktop Pong Overlay, then toggle Capture Input off/on.
+
+## Follow-up tap/hold fix
+
+Runtime acceptance caught a tap-pulse regression after the visual pass: a released key could leave a short ghost pulse that interfered with the next opposite-direction tap.
+
+The input monitor now only creates a tap pulse for a key that was pressed and released before any game frame observed it. Held keys stay active until key-up, and quick taps produce one clean nudge.
+
+Verified in the runtime harness:
+
+- held Up arrow moved the player paddle upward,
+- quick Down-arrow tap moved the player paddle downward,
+- remapped controls still moved both paddles.

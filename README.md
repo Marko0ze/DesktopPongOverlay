@@ -33,7 +33,7 @@ The staged app contains both arm64 and x86_64 slices.
 - Player vs AI: choose **Capture Input**, then use Up/Down arrows, W/S, remapped keyboard controls, or mouse.
 - Two Player: choose **Capture Input**; Player Paddle defaults to Up/Down arrows and Second Paddle defaults to W/S.
 - In Desktop Overlay mode, **Capture Input** keeps ordinary mouse clicks passing through to your Mac; opening Settings/About releases keyboard capture too.
-- While **Capture Input** is on, the configured gameplay keys are polled directly so they still work even though the overlay is click-through. If the status line never changes from "no key" while you hold ↑/↓, grant Accessibility access to Desktop Pong Overlay in System Settings, then toggle Capture Input off/on.
+- While **Capture Input** is on, both held keys and quick taps move the paddle, and the configured gameplay keys are polled directly so they still work even though the overlay is click-through. If the status line never changes from "no key" while you hold ↑/↓, grant Accessibility access to Desktop Pong Overlay in System Settings, then toggle Capture Input off/on.
 - Settings → Controls lets you remap left paddle, right paddle, and the global toggle key.
 - Presentation: choose **Desktop Overlay** for full-screen transparent Pong, or **Menu Bar Game** for a compact popover game from the menu-bar icon.
 - Global shortcut: Option-Command plus the configured global toggle key opens the active game surface from anywhere.
@@ -42,8 +42,9 @@ The staged app contains both arm64 and x86_64 slices.
 
 ## Appearance
 
-- Settings → Appearance controls Liquid Glass, Clear, and Frosted modes.
-- Liquid Glass uses native SpriteKit layers for object-local depth, rim light, glow, and specular highlights.
+- Settings → Appearance controls Liquid Glass, Full Liquid Glass, Clear, and Frosted modes.
+- Full Liquid Glass uses native SpriteKit layers for whole-capsule lens paddles inspired by the cloned `dashersw/liquid-glass-js` reference, without text or copied assets.
+- Liquid Glass uses native SpriteKit layers for object-local depth, rim light, glow, and specular highlights; paddle inner specular bars are intentionally removed.
 - Paddle Fill can be switched to **Transparent** to keep the paddle bodies clear while retaining coloured rim/glow/specular cues.
 - The app does not sample the desktop for live refraction, preserving the no-screen-recording privacy model.
 - Reference provenance is tracked in `docs/reference-provenance.md`; external repositories were used as inspiration only.

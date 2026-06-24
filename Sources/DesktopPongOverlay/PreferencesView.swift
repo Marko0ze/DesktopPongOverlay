@@ -462,6 +462,7 @@ private struct MaterialSample: View {
     private var sampleFill: Color {
         switch style {
         case .glass: .cyan.opacity(0.58)
+        case .fullGlass: .white.opacity(0.18)
         case .clear: .cyan
         case .frosted: .cyan.opacity(0.70)
         }
@@ -471,6 +472,8 @@ private struct MaterialSample: View {
         switch style {
         case .glass:
             CircleOrCapsuleStroke(color: .white.opacity(0.82))
+        case .fullGlass:
+            CircleOrCapsuleStroke(color: .white.opacity(0.94), lineWidth: 1.5)
         case .clear:
             CircleOrCapsuleStroke(color: .clear)
         case .frosted:
@@ -479,17 +482,29 @@ private struct MaterialSample: View {
     }
 
     private var glowColor: Color {
-        style == .clear ? .clear : .cyan.opacity(style == .glass ? 0.48 : 0.24)
+        switch style {
+        case .clear: .clear
+        case .glass: .cyan.opacity(0.48)
+        case .fullGlass: .white.opacity(0.42)
+        case .frosted: .cyan.opacity(0.24)
+        }
     }
 
-    private var glowRadius: CGFloat { style == .glass ? 5 : 3 }
+    private var glowRadius: CGFloat {
+        switch style {
+        case .fullGlass: 6
+        case .glass: 5
+        default: 3
+        }
+    }
 }
 
 private struct CircleOrCapsuleStroke: View {
     let color: Color
+    var lineWidth: CGFloat = 1
 
     var body: some View {
-        Capsule().stroke(color, lineWidth: 1)
+        Capsule().stroke(color, lineWidth: lineWidth)
     }
 }
 
@@ -567,20 +582,19 @@ private struct SettingsPreviewView: View {
                         )
                 }
             }
-            .overlay(alignment: .topLeading) {
-                if settings.materialStyle == .glass && settings.glassQuality != .performance {
-                    RoundedRectangle(cornerRadius: previewPaddleWidth * settings.paddleRoundness / 2)
-                        .fill(.white.opacity(settings.glassSpecularIntensity * 0.20))
-                        .frame(width: max(2, previewPaddleWidth * 0.35))
-                        .padding(.leading, previewPaddleWidth * 0.18)
-                        .padding(.vertical, previewPaddleHeight * 0.14)
-                        .allowsHitTesting(false)
-                }
-            }
+            .overlay(fullLensHighlight)
             .shadow(
                 color: Color(nsColor: color).opacity(settings.glowStrength * (settings.paddleGlassFill == .transparent ? 1.18 : 1)),
                 radius: settings.glowStrength * 10
             )
+    }
+
+    @ViewBuilder private var fullLensHighlight: some View {
+        if settings.materialStyle == .fullGlass && settings.glassQuality != .performance {
+            RoundedRectangle(cornerRadius: previewPaddleWidth * settings.paddleRoundness / 2)
+                .stroke(.white.opacity(settings.glassSpecularIntensity * 0.45), lineWidth: 0.9)
+                .allowsHitTesting(false)
+        }
     }
 
     private func paddleFill(color: NSColor) -> Color {
@@ -588,6 +602,7 @@ private struct SettingsPreviewView: View {
         let fillScale = settings.paddleGlassFill.fillAlphaScale
         return switch settings.materialStyle {
         case .glass: base.opacity(settings.objectOpacity * 0.62 * fillScale)
+        case .fullGlass: base.opacity(settings.objectOpacity * 0.24 * max(fillScale, 0.35))
         case .clear: base.opacity(settings.objectOpacity * fillScale)
         case .frosted: base.opacity(settings.objectOpacity * 0.74 * fillScale)
         }
@@ -597,7 +612,7 @@ private struct SettingsPreviewView: View {
         if settings.paddleGlassFill == .transparent {
             Color(nsColor: color).opacity(settings.objectOpacity * 0.82)
         } else {
-            .white.opacity(settings.materialStyle == .glass ? 0.72 : 0.30)
+            .white.opacity(settings.materialStyle == .glass || settings.materialStyle == .fullGlass ? 0.72 : 0.30)
         }
     }
 

@@ -6,6 +6,7 @@ import Carbon
 final class InputMonitor {
     private var localMonitor: Any?
     private var pressedKeyCodes = Set<UInt16>()
+    private var observedPressedKeyCodes = Set<UInt16>()
     private var polledKeyCodes = Set<UInt16>()
     private var pulsedKeyExpirations = [UInt16: TimeInterval]()
     private var gameplayKeyCodes = ControlBindings.default.gameplayKeyCodes
@@ -43,6 +44,7 @@ final class InputMonitor {
                 stopKeyboardEventTap()
                 unregisterGameplayHotkeys()
                 pressedKeyCodes.removeAll()
+                observedPressedKeyCodes.removeAll()
                 polledKeyCodes.removeAll()
                 pulsedKeyExpirations.removeAll()
                 keyboardPollingActive = false
@@ -70,6 +72,7 @@ final class InputMonitor {
         unregisterGameplayHotkeys()
         removeGameplayHotkeyHandler()
         pressedKeyCodes.removeAll()
+        observedPressedKeyCodes.removeAll()
         polledKeyCodes.removeAll()
         pulsedKeyExpirations.removeAll()
         keyboardPollingActive = false
@@ -85,6 +88,7 @@ final class InputMonitor {
 
     func applyRuntimeTestInput(pressedKeyCodes: Set<UInt16>, mouseScreenY: CGFloat? = nil) {
         self.pressedKeyCodes = pressedKeyCodes
+        observedPressedKeyCodes.removeAll()
         polledKeyCodes.removeAll()
         pulsedKeyExpirations.removeAll()
         self.mouseScreenY = mouseScreenY
@@ -99,14 +103,18 @@ final class InputMonitor {
         updateControlBindings(settings.controlBindings)
         pollGameplayKeyStates()
         pruneExpiredKeyPulses()
+        let activeKeyCodes = activeGameplayKeyCodes()
         let leftAxis = axis(
+            activeKeyCodes: activeKeyCodes,
             negativeKey: settings.controlBindings.leftDown.keyCode,
             positiveKey: settings.controlBindings.leftUp.keyCode
         )
         let rightAxis = axis(
+            activeKeyCodes: activeKeyCodes,
             negativeKey: settings.controlBindings.rightDown.keyCode,
             positiveKey: settings.controlBindings.rightUp.keyCode
         )
+        observedPressedKeyCodes.formUnion(pressedKeyCodes.intersection(gameplayKeyCodes))
         let shouldSampleMouse = isCapturingInput
             && settings.mode == .playerVsAI
             && settings.playerControlMode != .keyboardOnly
@@ -149,8 +157,7 @@ final class InputMonitor {
         return "Capture ON · keyboard unavailable"
     }
 
-    private func axis(negativeKey: UInt16, positiveKey: UInt16) -> CGFloat {
-        let activeKeyCodes = activeGameplayKeyCodes()
+    private func axis(activeKeyCodes: Set<UInt16>, negativeKey: UInt16, positiveKey: UInt16) -> CGFloat {
         return CGFloat((activeKeyCodes.contains(positiveKey) ? 1 : 0) - (activeKeyCodes.contains(negativeKey) ? 1 : 0))
     }
 
@@ -180,7 +187,7 @@ final class InputMonitor {
             recordGameplayKeyDown(keyCode)
             return true
         case .keyUp:
-            pressedKeyCodes.remove(keyCode)
+            recordGameplayKeyUp(keyCode)
             return true
         default:
             return false
@@ -194,8 +201,21 @@ final class InputMonitor {
     }
 
     private func recordGameplayKeyDown(_ keyCode: UInt16) {
+        if !pressedKeyCodes.contains(keyCode) {
+            observedPressedKeyCodes.remove(keyCode)
+        }
         pressedKeyCodes.insert(keyCode)
-        pulsedKeyExpirations[keyCode] = ProcessInfo.processInfo.systemUptime + keyTapPulseDuration
+        pulsedKeyExpirations.removeValue(forKey: keyCode)
+    }
+
+    private func recordGameplayKeyUp(_ keyCode: UInt16) {
+        let wasPressed = pressedKeyCodes.remove(keyCode) != nil
+        if wasPressed, !observedPressedKeyCodes.contains(keyCode) {
+            pulsedKeyExpirations[keyCode] = ProcessInfo.processInfo.systemUptime + keyTapPulseDuration
+        } else {
+            pulsedKeyExpirations.removeValue(forKey: keyCode)
+        }
+        observedPressedKeyCodes.remove(keyCode)
     }
 
     private func pruneExpiredKeyPulses() {
@@ -280,7 +300,7 @@ final class InputMonitor {
         case .keyDown:
             recordGameplayKeyDown(keyCode)
         case .keyUp:
-            pressedKeyCodes.remove(keyCode)
+            recordGameplayKeyUp(keyCode)
         default:
             break
         }
@@ -395,7 +415,7 @@ final class InputMonitor {
         case UInt32(kEventHotKeyPressed):
             recordGameplayKeyDown(keyCode)
         case UInt32(kEventHotKeyReleased):
-            pressedKeyCodes.remove(keyCode)
+            recordGameplayKeyUp(keyCode)
         default:
             break
         }

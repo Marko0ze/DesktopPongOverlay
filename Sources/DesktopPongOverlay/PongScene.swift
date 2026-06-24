@@ -115,10 +115,12 @@ final class PongScene: SKScene {
             rightScore: gameState.rightScore,
             leftPaddleFillAlpha: leftPaddle.fillColor.alphaComponent,
             rightPaddleFillAlpha: rightPaddle.fillColor.alphaComponent,
+            leftPaddleSpecularVisible: !leftPaddleSpecular.isHidden,
+            rightPaddleSpecularVisible: !rightPaddleSpecular.isHidden,
             ballVisible: !ball.isHidden && ball.parent === self,
             paddlesVisible: !leftPaddle.isHidden && !rightPaddle.isHidden,
-            liquidGlassRimVisible: settingsStore.settings.materialStyle == .glass && !ballRim.isHidden && !leftPaddleRim.isHidden,
-            liquidGlassSpecularVisible: settingsStore.settings.materialStyle == .glass && !ballSpecular.isHidden && !leftPaddleSpecular.isHidden,
+            liquidGlassRimVisible: settingsStore.settings.materialStyle.isLiquidGlass && !ballRim.isHidden && !leftPaddleRim.isHidden,
+            liquidGlassSpecularVisible: settingsStore.settings.materialStyle.isLiquidGlass && !ballSpecular.isHidden,
             centerLineVisible: !centerLine.isHidden,
             scoreVisible: !leftScore.isHidden && !rightScore.isHidden
         )
@@ -187,20 +189,8 @@ final class PongScene: SKScene {
         rightPaddle.path = leftPaddle.path
         leftPaddleRim.path = leftPaddle.path
         rightPaddleRim.path = leftPaddle.path
-        let specularWidth = max(2, paddleSize.width * 0.28)
-        let specularPath = CGPath(
-            roundedRect: CGRect(
-                x: -paddleSize.width * 0.28,
-                y: -paddleSize.height * 0.34,
-                width: specularWidth,
-                height: paddleSize.height * 0.62
-            ),
-            cornerWidth: specularWidth / 2,
-            cornerHeight: specularWidth / 2,
-            transform: nil
-        )
-        leftPaddleSpecular.path = specularPath
-        rightPaddleSpecular.path = specularPath
+        leftPaddleSpecular.path = leftPaddle.path
+        rightPaddleSpecular.path = leftPaddle.path
         ball.path = CGPath(
             ellipseIn: CGRect(
                 x: -settings.ballSize / 2,
@@ -229,7 +219,8 @@ final class PongScene: SKScene {
             settings: settings,
             fillAlphaScale: CGFloat(settings.paddleGlassFill.fillAlphaScale),
             rimColor: settings.playerPaddleColor.nsColor.blended(withFraction: 0.48, of: .white) ?? .white,
-            transparentOutlineBoost: settings.paddleGlassFill == .transparent
+            transparentOutlineBoost: settings.paddleGlassFill == .transparent,
+            isPaddle: true
         )
         styleGlassObject(
             base: rightPaddle,
@@ -239,7 +230,8 @@ final class PongScene: SKScene {
             settings: settings,
             fillAlphaScale: CGFloat(settings.paddleGlassFill.fillAlphaScale),
             rimColor: settings.aiPaddleColor.nsColor.blended(withFraction: 0.48, of: .white) ?? .white,
-            transparentOutlineBoost: settings.paddleGlassFill == .transparent
+            transparentOutlineBoost: settings.paddleGlassFill == .transparent,
+            isPaddle: true
         )
         styleGlassObject(base: ball, rim: ballRim, specular: ballSpecular, color: settings.ballColor.nsColor, settings: settings)
 
@@ -268,7 +260,8 @@ final class PongScene: SKScene {
         settings: PongSettings,
         fillAlphaScale: CGFloat = 1,
         rimColor: NSColor = .white,
-        transparentOutlineBoost: Bool = false
+        transparentOutlineBoost: Bool = false,
+        isPaddle: Bool = false
     ) {
         let opacity = CGFloat(settings.objectOpacity)
         let qualityMultiplier = glassQualityMultiplier(settings.glassQuality)
@@ -292,6 +285,22 @@ final class PongScene: SKScene {
             specular.lineWidth = 0.5
             specular.glowWidth = settings.glowStrength * 3 * qualityMultiplier
             rim.isHidden = settings.glassQuality == .performance
+            specular.isHidden = isPaddle || settings.glassQuality == .performance
+        case .fullGlass:
+            let lensFillScale = max(fillAlphaScale, settings.paddleGlassFill == .transparent ? 0.35 : 1)
+            base.fillColor = color.withAlphaComponent(opacity * (0.10 + depth * 0.18) * lensFillScale)
+            base.strokeColor = NSColor.white.withAlphaComponent(opacity * (0.58 + depth * 0.24))
+            base.lineWidth = 1.15 + depth * 0.55
+            base.glowWidth = settings.glowStrength * (10 + depth * 13)
+            rim.fillColor = .clear
+            rim.strokeColor = rimColor.withAlphaComponent(min(1, rimAlpha * 1.35 + 0.16))
+            rim.lineWidth = 2.0 + depth * 2.1
+            rim.glowWidth = settings.glowStrength * 6.5 * qualityMultiplier
+            specular.fillColor = .clear
+            specular.strokeColor = NSColor.white.withAlphaComponent(specularAlpha * 0.55)
+            specular.lineWidth = 0.9
+            specular.glowWidth = settings.glowStrength * 4.5 * qualityMultiplier
+            rim.isHidden = settings.glassQuality == .performance
             specular.isHidden = settings.glassQuality == .performance
         case .clear:
             base.fillColor = color.withAlphaComponent(opacity * fillAlphaScale)
@@ -314,7 +323,7 @@ final class PongScene: SKScene {
             specular.lineWidth = 0
             specular.glowWidth = 0
             rim.isHidden = settings.glassQuality == .performance
-            specular.isHidden = settings.glassQuality != .rich
+            specular.isHidden = isPaddle || settings.glassQuality != .rich
         }
     }
 
@@ -443,6 +452,8 @@ struct PongSceneRuntimeSnapshot: Codable {
     let rightScore: Int
     let leftPaddleFillAlpha: CGFloat
     let rightPaddleFillAlpha: CGFloat
+    let leftPaddleSpecularVisible: Bool
+    let rightPaddleSpecularVisible: Bool
     let ballVisible: Bool
     let paddlesVisible: Bool
     let liquidGlassRimVisible: Bool

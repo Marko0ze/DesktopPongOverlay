@@ -19,10 +19,25 @@ enum GameMode: String, Codable, CaseIterable, Sendable {
 
 enum PongMaterialStyle: String, Codable, CaseIterable, Sendable {
     case glass
+    case fullGlass
     case clear
     case frosted
 
-    var title: String { rawValue.capitalized }
+    var title: String {
+        switch self {
+        case .glass: "Liquid Glass"
+        case .fullGlass: "Full Liquid Glass"
+        case .clear: "Clear"
+        case .frosted: "Frosted"
+        }
+    }
+
+    var isLiquidGlass: Bool {
+        switch self {
+        case .glass, .fullGlass: true
+        case .clear, .frosted: false
+        }
+    }
 }
 
 enum GlassQuality: String, Codable, CaseIterable, Sendable {
