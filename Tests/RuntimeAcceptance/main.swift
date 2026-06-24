@@ -273,6 +273,17 @@ private final class RuntimeAcceptanceDelegate: NSObject, NSApplicationDelegate {
             defaultArrowHandled && defaultArrowReleased && defaultArrowAfter.leftPaddleY > defaultArrowBefore.leftPaddleY,
             "handled=\(defaultArrowHandled), released=\(defaultArrowReleased), before=\(defaultArrowBefore.leftPaddleY), after=\(defaultArrowAfter.leftPaddleY)"
         )
+        let tapPulseBefore = overlayController.scene.runtimeSnapshot()
+        let tapDownHandled = inputMonitor.applyRuntimeTestKeyEvent(type: .keyDown, keyCode: KeyBinding.downArrow.keyCode)
+        let tapUpHandled = inputMonitor.applyRuntimeTestKeyEvent(type: .keyUp, keyCode: KeyBinding.downArrow.keyCode)
+        overlayController.scene.update(ProcessInfo.processInfo.systemUptime + 0.60)
+        overlayController.scene.update(ProcessInfo.processInfo.systemUptime + 0.65)
+        let tapPulseAfter = overlayController.scene.runtimeSnapshot()
+        record(
+            "arrow tap pulse moves player paddle",
+            tapDownHandled && tapUpHandled && tapPulseAfter.leftPaddleY < tapPulseBefore.leftPaddleY,
+            "down=\(tapDownHandled), up=\(tapUpHandled), before=\(tapPulseBefore.leftPaddleY), after=\(tapPulseAfter.leftPaddleY)"
+        )
 
         settingsStore.settings.mode = .twoPlayer
         settingsStore.settings.materialStyle = .glass
