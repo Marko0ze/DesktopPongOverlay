@@ -230,6 +230,22 @@ private final class RuntimeAcceptanceDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func runRemappedControlAndGlassChecks() {
+        settingsStore.settings.mode = .playerVsAI
+        settingsStore.settings.controlBindings = .default
+        inputMonitor.isCapturingInput = true
+        inputMonitor.updateControlBindings(settingsStore.settings.controlBindings)
+        let defaultArrowBefore = overlayController.scene.runtimeSnapshot()
+        let defaultArrowHandled = inputMonitor.applyRuntimeTestKeyEvent(type: .keyDown, keyCode: KeyBinding.upArrow.keyCode)
+        overlayController.scene.update(ProcessInfo.processInfo.systemUptime + 0.50)
+        overlayController.scene.update(ProcessInfo.processInfo.systemUptime + 0.55)
+        let defaultArrowReleased = inputMonitor.applyRuntimeTestKeyEvent(type: .keyUp, keyCode: KeyBinding.upArrow.keyCode)
+        let defaultArrowAfter = overlayController.scene.runtimeSnapshot()
+        record(
+            "default arrow key moves player paddle",
+            defaultArrowHandled && defaultArrowReleased && defaultArrowAfter.leftPaddleY > defaultArrowBefore.leftPaddleY,
+            "handled=\(defaultArrowHandled), released=\(defaultArrowReleased), before=\(defaultArrowBefore.leftPaddleY), after=\(defaultArrowAfter.leftPaddleY)"
+        )
+
         settingsStore.settings.mode = .twoPlayer
         settingsStore.settings.materialStyle = .glass
         settingsStore.settings.glassQuality = .rich

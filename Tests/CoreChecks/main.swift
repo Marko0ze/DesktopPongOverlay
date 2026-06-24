@@ -96,6 +96,8 @@ private func checkSpeedMapping() {
 
 private func checkPlayableDefaults() {
     expect(PongSettings.default.mode == .playerVsAI, "default mode should be playable with controls")
+    expect(PongSettings.default.controlBindings.leftUp == .upArrow, "default player-up control should be Up arrow")
+    expect(PongSettings.default.controlBindings.leftDown == .downArrow, "default player-down control should be Down arrow")
 }
 
 private func checkControlModes() {
@@ -289,6 +291,14 @@ private func checkSettingsPersistence() {
 
         restoredStore.resetToDefaults()
         expect(restoredStore.settings == .default, "Reset to Defaults should restore every setting")
+
+        var legacySettings = PongSettings.default
+        legacySettings.controlBindings = .legacyDefault
+        let legacyData = try! JSONEncoder().encode(legacySettings)
+        defaults.set(legacyData, forKey: "DesktopPongOverlay.settings.v2")
+
+        let migratedStore = SettingsStore(defaults: defaults)
+        expect(migratedStore.settings.controlBindings == .default, "legacy W/S-left defaults should migrate to arrow-key player defaults")
     }
 }
 

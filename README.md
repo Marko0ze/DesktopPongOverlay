@@ -30,8 +30,8 @@ The staged app contains both arm64 and x86_64 slices.
 ## Controls
 
 - Demo mode: AI plays both paddles.
-- Player vs AI: choose **Capture Input**, then use W/S, Up/Down arrows, remapped keyboard controls, or mouse.
-- Two Player: choose **Capture Input**; each paddle uses its configured up/down keys.
+- Player vs AI: choose **Capture Input**, then use Up/Down arrows, W/S, remapped keyboard controls, or mouse.
+- Two Player: choose **Capture Input**; Player Paddle defaults to Up/Down arrows and Second Paddle defaults to W/S.
 - In Desktop Overlay mode, **Capture Input** keeps ordinary mouse clicks passing through to your Mac; opening Settings/About releases keyboard capture too.
 - Settings → Controls lets you remap left paddle, right paddle, and the global toggle key.
 - Presentation: choose **Desktop Overlay** for full-screen transparent Pong, or **Menu Bar Game** for a compact popover game from the menu-bar icon.

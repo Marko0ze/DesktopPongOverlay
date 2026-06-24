@@ -149,7 +149,7 @@ struct PreferencesView: View {
             }
             .pickerStyle(.segmented)
             KeyBindingRow(
-                title: "Left Paddle Up",
+                title: "Player Paddle Up",
                 binding: $store.settings.controlBindings.leftUp,
                 reservedKeyCodes: Set([
                     store.settings.controlBindings.leftDown.keyCode,
@@ -158,7 +158,7 @@ struct PreferencesView: View {
                 ])
             )
             KeyBindingRow(
-                title: "Left Paddle Down",
+                title: "Player Paddle Down",
                 binding: $store.settings.controlBindings.leftDown,
                 reservedKeyCodes: Set([
                     store.settings.controlBindings.leftUp.keyCode,
@@ -168,7 +168,7 @@ struct PreferencesView: View {
             )
             Divider()
             KeyBindingRow(
-                title: "Right Paddle Up",
+                title: "Second Paddle Up",
                 binding: $store.settings.controlBindings.rightUp,
                 reservedKeyCodes: Set([
                     store.settings.controlBindings.leftUp.keyCode,
@@ -177,7 +177,7 @@ struct PreferencesView: View {
                 ])
             )
             KeyBindingRow(
-                title: "Right Paddle Down",
+                title: "Second Paddle Down",
                 binding: $store.settings.controlBindings.rightDown,
                 reservedKeyCodes: Set([
                     store.settings.controlBindings.leftUp.keyCode,
@@ -374,10 +374,9 @@ private struct KeyBindingRow: View {
         monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { event in
             let candidate = KeyBinding(event: event)
             if reservedKeyCodes.contains(candidate.keyCode) {
-                errorMessage = "\(candidate.label) is already assigned to another paddle action."
-            } else {
-                binding = candidate
+                errorMessage = "\(candidate.label) is also assigned to another paddle action."
             }
+            binding = candidate
             DispatchQueue.main.async {
                 stopRecording()
             }

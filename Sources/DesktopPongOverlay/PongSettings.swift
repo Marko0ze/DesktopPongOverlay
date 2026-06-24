@@ -144,13 +144,20 @@ struct KeyBinding: Codable, Equatable, Sendable {
 }
 
 struct ControlBindings: Codable, Equatable, Sendable {
-    var leftUp: KeyBinding = .w
-    var leftDown: KeyBinding = .s
-    var rightUp: KeyBinding = .upArrow
-    var rightDown: KeyBinding = .downArrow
+    var leftUp: KeyBinding = .upArrow
+    var leftDown: KeyBinding = .downArrow
+    var rightUp: KeyBinding = .w
+    var rightDown: KeyBinding = .s
     var globalToggle: KeyBinding = .p
 
     static let `default` = ControlBindings()
+    static let legacyDefault = ControlBindings(
+        leftUp: .w,
+        leftDown: .s,
+        rightUp: .upArrow,
+        rightDown: .downArrow,
+        globalToggle: .p
+    )
 
     var gameplayKeyCodes: Set<UInt16> {
         Set([leftUp.keyCode, leftDown.keyCode, rightUp.keyCode, rightDown.keyCode])
@@ -303,6 +310,9 @@ final class SettingsStore: ObservableObject {
         if let data = defaults.data(forKey: storageKey),
            var stored = try? JSONDecoder().decode(PongSettings.self, from: data) {
             stored.clamp()
+            if stored.controlBindings == .legacyDefault {
+                stored.controlBindings = .default
+            }
             settings = stored
         } else {
             settings = .default
