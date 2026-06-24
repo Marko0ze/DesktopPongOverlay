@@ -180,9 +180,20 @@ private final class RuntimeAcceptanceDelegate: NSObject, NSApplicationDelegate {
         )
         record("capture keeps desktop clickable", captured.ignoresMouseEvents, "ignoresMouse=\(captured.ignoresMouseEvents)")
         record("capture enables playable controls", settingsStore.settings.mode == .playerVsAI, "mode=\(settingsStore.settings.mode.rawValue)")
+        record(
+            "capture registers gameplay hotkeys",
+            captured.registeredGameplayHotkeyCount == captured.expectedGameplayHotkeyCount && captured.gameplayHotkeyFailureCount == 0,
+            "registered=\(captured.registeredGameplayHotkeyCount), expected=\(captured.expectedGameplayHotkeyCount), failures=\(captured.gameplayHotkeyFailureCount)"
+        )
         record("status menu capture action", captureActionSent, "sent=\(captureActionSent)")
         let passThroughActionSent = statusMenuController.performRuntimeMenuAction(titled: "Capture Input")
-        record("restore pass-through", overlayController.runtimeSnapshot().ignoresMouseEvents, "ignoresMouse=\(overlayController.runtimeSnapshot().ignoresMouseEvents)")
+        let restoredPassThrough = overlayController.runtimeSnapshot()
+        record("restore pass-through", restoredPassThrough.ignoresMouseEvents, "ignoresMouse=\(restoredPassThrough.ignoresMouseEvents)")
+        record(
+            "restore unregisters gameplay hotkeys",
+            restoredPassThrough.registeredGameplayHotkeyCount == 0 && restoredPassThrough.gameplayHotkeyFailureCount == 0,
+            "registered=\(restoredPassThrough.registeredGameplayHotkeyCount), failures=\(restoredPassThrough.gameplayHotkeyFailureCount)"
+        )
         record("status menu pass-through action", passThroughActionSent, "sent=\(passThroughActionSent)")
 
         let playerModeActionSent = statusMenuController.performRuntimeMenuAction(titled: "Player vs AI")
@@ -234,6 +245,11 @@ private final class RuntimeAcceptanceDelegate: NSObject, NSApplicationDelegate {
         settingsStore.settings.controlBindings = .default
         inputMonitor.isCapturingInput = true
         inputMonitor.updateControlBindings(settingsStore.settings.controlBindings)
+        record(
+            "default gameplay hotkeys registered",
+            inputMonitor.registeredGameplayHotkeyCount == inputMonitor.expectedGameplayHotkeyCount && inputMonitor.gameplayHotkeyFailureCount == 0,
+            "registered=\(inputMonitor.registeredGameplayHotkeyCount), expected=\(inputMonitor.expectedGameplayHotkeyCount), failures=\(inputMonitor.gameplayHotkeyFailureCount)"
+        )
         let defaultArrowBefore = overlayController.scene.runtimeSnapshot()
         let defaultArrowHandled = inputMonitor.applyRuntimeTestKeyEvent(type: .keyDown, keyCode: KeyBinding.upArrow.keyCode)
         overlayController.scene.update(ProcessInfo.processInfo.systemUptime + 0.50)
@@ -258,6 +274,11 @@ private final class RuntimeAcceptanceDelegate: NSObject, NSApplicationDelegate {
         let before = overlayController.scene.runtimeSnapshot()
         inputMonitor.isCapturingInput = true
         inputMonitor.updateControlBindings(settingsStore.settings.controlBindings)
+        record(
+            "remapped gameplay hotkeys registered",
+            inputMonitor.registeredGameplayHotkeyCount == inputMonitor.expectedGameplayHotkeyCount && inputMonitor.gameplayHotkeyFailureCount == 0,
+            "registered=\(inputMonitor.registeredGameplayHotkeyCount), expected=\(inputMonitor.expectedGameplayHotkeyCount), failures=\(inputMonitor.gameplayHotkeyFailureCount)"
+        )
         let leftKeyHandled = inputMonitor.applyRuntimeTestKeyEvent(type: .keyDown, keyCode: 0)
         let rightKeyHandled = inputMonitor.applyRuntimeTestKeyEvent(type: .keyDown, keyCode: 15)
         overlayController.scene.update(ProcessInfo.processInfo.systemUptime + 1.0)

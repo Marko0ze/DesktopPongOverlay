@@ -271,7 +271,7 @@ struct PreferencesView: View {
                 .font(.title3.weight(.semibold))
             Label("No internet, analytics, accounts, or data collection.", systemImage: "network.slash")
             Label("No screen recording or screenshots.", systemImage: "camera.viewfinder")
-            Label("No global input monitor; the global shortcut is a registered macOS hotkey.", systemImage: "keyboard")
+            Label("No global input monitor; gameplay keys and the global shortcut use registered macOS hotkeys.", systemImage: "keyboard")
             Label("Liquid Glass is simulated locally on the game objects, not by sampling your desktop.", systemImage: "sparkles")
         }
         .settingsCard()

@@ -39,7 +39,7 @@ final class AboutWindowController: NSWindowController {
             Text("A transparent desktop Pong game built from scratch for macOS.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
-            Text("No screen recording, network access, analytics, or global key monitoring.")
+            Text("Registered hotkeys only; no screen recording, network access, analytics, or key monitoring.")
                 .font(.caption)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.tertiary)
