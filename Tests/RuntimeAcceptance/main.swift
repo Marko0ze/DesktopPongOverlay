@@ -182,8 +182,11 @@ private final class RuntimeAcceptanceDelegate: NSObject, NSApplicationDelegate {
         record("capture enables playable controls", settingsStore.settings.mode == .playerVsAI, "mode=\(settingsStore.settings.mode.rawValue)")
         record(
             "capture reports keyboard path",
-            captured.keyboardEventTapActive || captured.keyboardEventTapNeedsAccessibility || captured.registeredGameplayHotkeyCount == captured.expectedGameplayHotkeyCount,
-            "eventTap=\(captured.keyboardEventTapActive), needsAccessibility=\(captured.keyboardEventTapNeedsAccessibility), registered=\(captured.registeredGameplayHotkeyCount)"
+            captured.keyboardPollingActive
+                || captured.keyboardEventTapActive
+                || captured.keyboardEventTapNeedsAccessibility
+                || captured.registeredGameplayHotkeyCount == captured.expectedGameplayHotkeyCount,
+            "polling=\(captured.keyboardPollingActive), eventTap=\(captured.keyboardEventTapActive), needsAccessibility=\(captured.keyboardEventTapNeedsAccessibility), registered=\(captured.registeredGameplayHotkeyCount)"
         )
         record(
             "capture registers gameplay hotkeys",
@@ -197,10 +200,11 @@ private final class RuntimeAcceptanceDelegate: NSObject, NSApplicationDelegate {
         record(
             "restore unregisters gameplay hotkeys",
             !restoredPassThrough.keyboardEventTapActive
+                && !restoredPassThrough.keyboardPollingActive
                 && !restoredPassThrough.keyboardEventTapNeedsAccessibility
                 && restoredPassThrough.registeredGameplayHotkeyCount == 0
                 && restoredPassThrough.gameplayHotkeyFailureCount == 0,
-            "eventTap=\(restoredPassThrough.keyboardEventTapActive), needsAccessibility=\(restoredPassThrough.keyboardEventTapNeedsAccessibility), registered=\(restoredPassThrough.registeredGameplayHotkeyCount), failures=\(restoredPassThrough.gameplayHotkeyFailureCount)"
+            "polling=\(restoredPassThrough.keyboardPollingActive), eventTap=\(restoredPassThrough.keyboardEventTapActive), needsAccessibility=\(restoredPassThrough.keyboardEventTapNeedsAccessibility), registered=\(restoredPassThrough.registeredGameplayHotkeyCount), failures=\(restoredPassThrough.gameplayHotkeyFailureCount)"
         )
         record("status menu pass-through action", passThroughActionSent, "sent=\(passThroughActionSent)")
 

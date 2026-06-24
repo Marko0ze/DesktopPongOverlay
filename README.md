@@ -33,7 +33,7 @@ The staged app contains both arm64 and x86_64 slices.
 - Player vs AI: choose **Capture Input**, then use Up/Down arrows, W/S, remapped keyboard controls, or mouse.
 - Two Player: choose **Capture Input**; Player Paddle defaults to Up/Down arrows and Second Paddle defaults to W/S.
 - In Desktop Overlay mode, **Capture Input** keeps ordinary mouse clicks passing through to your Mac; opening Settings/About releases keyboard capture too.
-- While **Capture Input** is on, the configured gameplay keys are read through a temporary, filtered macOS Accessibility keyboard tap so they still work even though the overlay is click-through. If the status line says "allow Accessibility for keyboard", grant Accessibility access to Desktop Pong Overlay in System Settings, then toggle Capture Input off/on.
+- While **Capture Input** is on, the configured gameplay keys are polled directly so they still work even though the overlay is click-through. If the status line never changes from "no key" while you hold ↑/↓, grant Accessibility access to Desktop Pong Overlay in System Settings, then toggle Capture Input off/on.
 - Settings → Controls lets you remap left paddle, right paddle, and the global toggle key.
 - Presentation: choose **Desktop Overlay** for full-screen transparent Pong, or **Menu Bar Game** for a compact popover game from the menu-bar icon.
 - Global shortcut: Option-Command plus the configured global toggle key opens the active game surface from anywhere.
@@ -50,8 +50,8 @@ The staged app contains both arm64 and x86_64 slices.
 
 ## Privacy
 
-The app does not record the screen, take screenshots, use the network, collect analytics, or install always-on input monitors. While **Capture Input** is explicitly enabled, the app uses a temporary Accessibility keyboard tap filtered to the configured gameplay keys, and pointer position is sampled for mouse control.
-The gameplay keyboard tap and global shortcut do not inspect typed text beyond the configured controls.
+The app does not record the screen, take screenshots, use the network, collect analytics, or install always-on input monitors. While **Capture Input** is explicitly enabled, the app checks the configured gameplay key states, uses a temporary Accessibility keyboard tap as backup when available, and samples pointer position for mouse control.
+The gameplay keyboard paths and global shortcut do not inspect typed text beyond the configured controls.
 
 ## Packaging
 

@@ -203,7 +203,7 @@ struct PreferencesView: View {
                     store.settings.playerControlMode = .keyboardAndMouse
                 }
             }
-            Text("Player vs AI accepts W/S or Up/Down arrows by default. If the overlay says “allow Accessibility for keyboard”, grant Accessibility access to Desktop Pong Overlay and toggle Capture Input off/on.")
+            Text("Player vs AI accepts W/S or Up/Down arrows by default. If the overlay never changes from “no key” while you hold ↑/↓, grant Accessibility access to Desktop Pong Overlay and toggle Capture Input off/on.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -271,7 +271,7 @@ struct PreferencesView: View {
                 .font(.title3.weight(.semibold))
             Label("No internet, analytics, accounts, or data collection.", systemImage: "network.slash")
             Label("No screen recording or screenshots.", systemImage: "camera.viewfinder")
-            Label("No always-on key monitor; Capture Input uses a temporary, gameplay-key filtered Accessibility tap.", systemImage: "keyboard")
+            Label("No always-on key monitor; Capture Input checks configured gameplay keys and uses a filtered Accessibility tap as backup.", systemImage: "keyboard")
             Label("Liquid Glass is simulated locally on the game objects, not by sampling your desktop.", systemImage: "sparkles")
         }
         .settingsCard()

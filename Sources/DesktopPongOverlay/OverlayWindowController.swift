@@ -129,6 +129,7 @@ final class OverlayWindowController: NSWindowController {
             hasSpriteView: skView != nil,
             spriteViewAllowsTransparency: skView?.allowsTransparency ?? false,
             inputMonitorCapturing: inputMonitor.isCapturingInput,
+            keyboardPollingActive: inputMonitor.keyboardPollingActive,
             keyboardEventTapActive: inputMonitor.keyboardEventTapActive,
             keyboardEventTapNeedsAccessibility: inputMonitor.keyboardEventTapNeedsAccessibility,
             registeredGameplayHotkeyCount: inputMonitor.registeredGameplayHotkeyCount,
@@ -217,6 +218,7 @@ struct OverlayRuntimeSnapshot: Codable {
     let hasSpriteView: Bool
     let spriteViewAllowsTransparency: Bool
     let inputMonitorCapturing: Bool
+    let keyboardPollingActive: Bool
     let keyboardEventTapActive: Bool
     let keyboardEventTapNeedsAccessibility: Bool
     let registeredGameplayHotkeyCount: Int

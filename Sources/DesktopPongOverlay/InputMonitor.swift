@@ -6,10 +6,12 @@ import Carbon
 final class InputMonitor {
     private var localMonitor: Any?
     private var pressedKeyCodes = Set<UInt16>()
+    private var polledKeyCodes = Set<UInt16>()
     private var gameplayKeyCodes = ControlBindings.default.gameplayKeyCodes
     private var keyboardEventTap: CFMachPort?
     private var keyboardEventTapSource: CFRunLoopSource?
     private var accessibilityPromptShown = false
+    private(set) var keyboardPollingActive = false
     private(set) var keyboardEventTapActive = false
     private(set) var keyboardEventTapNeedsAccessibility = false
     private var gameplayHotkeyRefs = [UInt16: EventHotKeyRef]()
@@ -39,6 +41,8 @@ final class InputMonitor {
                 stopKeyboardEventTap()
                 unregisterGameplayHotkeys()
                 pressedKeyCodes.removeAll()
+                polledKeyCodes.removeAll()
+                keyboardPollingActive = false
                 mouseScreenY = nil
             }
         }
@@ -63,6 +67,8 @@ final class InputMonitor {
         unregisterGameplayHotkeys()
         removeGameplayHotkeyHandler()
         pressedKeyCodes.removeAll()
+        polledKeyCodes.removeAll()
+        keyboardPollingActive = false
     }
 
     func updateControlBindings(_ bindings: ControlBindings) {
@@ -75,6 +81,7 @@ final class InputMonitor {
 
     func applyRuntimeTestInput(pressedKeyCodes: Set<UInt16>, mouseScreenY: CGFloat? = nil) {
         self.pressedKeyCodes = pressedKeyCodes
+        polledKeyCodes.removeAll()
         self.mouseScreenY = mouseScreenY
     }
 
@@ -85,6 +92,7 @@ final class InputMonitor {
 
     func snapshot(screenOriginY: CGFloat, settings: PongSettings) -> InputSnapshot {
         updateControlBindings(settings.controlBindings)
+        pollGameplayKeyStates()
         let leftAxis = axis(
             negativeKey: settings.controlBindings.leftDown.keyCode,
             positiveKey: settings.controlBindings.leftUp.keyCode
@@ -109,18 +117,22 @@ final class InputMonitor {
 
     func captureStatusDescription(bindings: ControlBindings) -> String {
         guard isCapturingInput else { return "Capture OFF" }
+        let activeKeyCodes = pressedKeyCodes.union(polledKeyCodes)
         let pressedLabels = [
             (bindings.leftUp.keyCode, bindings.leftUp.label),
             (bindings.leftDown.keyCode, bindings.leftDown.label),
             (bindings.rightUp.keyCode, bindings.rightUp.label),
             (bindings.rightDown.keyCode, bindings.rightDown.label)
         ]
-        .filter { pressedKeyCodes.contains($0.0) }
+        .filter { activeKeyCodes.contains($0.0) }
         .map(\.1)
         let keyText = pressedLabels.isEmpty ? "no key" : pressedLabels.joined(separator: "+")
 
         if keyboardEventTapActive {
             return "Capture ON · keyboard active · \(keyText)"
+        }
+        if keyboardPollingActive {
+            return "Capture ON · keyboard polling fallback · \(keyText)"
         }
         if keyboardEventTapNeedsAccessibility {
             return "Capture ON · allow Accessibility for keyboard · \(keyText)"
@@ -132,7 +144,8 @@ final class InputMonitor {
     }
 
     private func axis(negativeKey: UInt16, positiveKey: UInt16) -> CGFloat {
-        CGFloat((pressedKeyCodes.contains(positiveKey) ? 1 : 0) - (pressedKeyCodes.contains(negativeKey) ? 1 : 0))
+        let activeKeyCodes = pressedKeyCodes.union(polledKeyCodes)
+        return CGFloat((activeKeyCodes.contains(positiveKey) ? 1 : 0) - (activeKeyCodes.contains(negativeKey) ? 1 : 0))
     }
 
     private func handle(_ event: NSEvent) -> NSEvent? {
@@ -166,6 +179,20 @@ final class InputMonitor {
         default:
             return false
         }
+    }
+
+    private func pollGameplayKeyStates() {
+        guard isCapturingInput else {
+            polledKeyCodes.removeAll()
+            keyboardPollingActive = false
+            return
+        }
+        keyboardPollingActive = true
+        polledKeyCodes = Set(gameplayKeyCodes.filter { keyCode in
+            let cgKeyCode = CGKeyCode(keyCode)
+            return CGEventSource.keyState(.combinedSessionState, key: cgKeyCode)
+                || CGEventSource.keyState(.hidSystemState, key: cgKeyCode)
+        })
     }
 
     private func startKeyboardEventTap() {

@@ -69,3 +69,22 @@ Observed status after enabling Capture Input in the fresh build:
 - `Capture ON · allow Accessibility for keyboard · no key`
 
 Interpretation: macOS is blocking keyboard observation for this app until Desktop Pong Overlay is granted Accessibility access in System Settings. This explains why physical held ↑/↓ keys were not moving the paddle.
+
+## Follow-up polling fallback
+
+Added a frame-by-frame physical key-state polling fallback for the configured gameplay keys. The game now combines:
+
+- local key events when the overlay receives them,
+- the temporary Accessibility keyboard tap when permission is available,
+- Carbon hotkey fallback,
+- physical key-state polling while Capture Input is enabled.
+
+Expected status without Accessibility permission is now:
+
+- `Capture ON · keyboard polling fallback · no key`
+
+When holding ↓, expected status is:
+
+- `Capture ON · keyboard polling fallback · ↓`
+
+If the status remains `no key` while physically holding ↑/↓, the remaining macOS-level fallback is to grant Accessibility access to Desktop Pong Overlay, then toggle Capture Input off/on.
