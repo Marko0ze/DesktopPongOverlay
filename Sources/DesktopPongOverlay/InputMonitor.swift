@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import Carbon
 
 @MainActor
@@ -6,6 +7,11 @@ final class InputMonitor {
     private var localMonitor: Any?
     private var pressedKeyCodes = Set<UInt16>()
     private var gameplayKeyCodes = ControlBindings.default.gameplayKeyCodes
+    private var keyboardEventTap: CFMachPort?
+    private var keyboardEventTapSource: CFRunLoopSource?
+    private var accessibilityPromptShown = false
+    private(set) var keyboardEventTapActive = false
+    private(set) var keyboardEventTapNeedsAccessibility = false
     private var gameplayHotkeyRefs = [UInt16: EventHotKeyRef]()
     private var gameplayHotkeyIDs = [UInt32: UInt16]()
     private var gameplayHotkeyHandlerRef: EventHandlerRef?
@@ -27,8 +33,10 @@ final class InputMonitor {
         didSet {
             guard oldValue != isCapturingInput else { return }
             if isCapturingInput {
+                startKeyboardEventTap()
                 registerGameplayHotkeys()
             } else {
+                stopKeyboardEventTap()
                 unregisterGameplayHotkeys()
                 pressedKeyCodes.removeAll()
                 mouseScreenY = nil
@@ -51,6 +59,7 @@ final class InputMonitor {
             NSEvent.removeMonitor(localMonitor)
         }
         localMonitor = nil
+        stopKeyboardEventTap()
         unregisterGameplayHotkeys()
         removeGameplayHotkeyHandler()
         pressedKeyCodes.removeAll()
@@ -98,6 +107,30 @@ final class InputMonitor {
         )
     }
 
+    func captureStatusDescription(bindings: ControlBindings) -> String {
+        guard isCapturingInput else { return "Capture OFF" }
+        let pressedLabels = [
+            (bindings.leftUp.keyCode, bindings.leftUp.label),
+            (bindings.leftDown.keyCode, bindings.leftDown.label),
+            (bindings.rightUp.keyCode, bindings.rightUp.label),
+            (bindings.rightDown.keyCode, bindings.rightDown.label)
+        ]
+        .filter { pressedKeyCodes.contains($0.0) }
+        .map(\.1)
+        let keyText = pressedLabels.isEmpty ? "no key" : pressedLabels.joined(separator: "+")
+
+        if keyboardEventTapActive {
+            return "Capture ON · keyboard active · \(keyText)"
+        }
+        if keyboardEventTapNeedsAccessibility {
+            return "Capture ON · allow Accessibility for keyboard · \(keyText)"
+        }
+        if registeredGameplayHotkeyCount > 0 {
+            return "Capture ON · hotkey fallback · \(keyText)"
+        }
+        return "Capture ON · keyboard unavailable"
+    }
+
     private func axis(negativeKey: UInt16, positiveKey: UInt16) -> CGFloat {
         CGFloat((pressedKeyCodes.contains(positiveKey) ? 1 : 0) - (pressedKeyCodes.contains(negativeKey) ? 1 : 0))
     }
@@ -133,6 +166,81 @@ final class InputMonitor {
         default:
             return false
         }
+    }
+
+    private func startKeyboardEventTap() {
+        stopKeyboardEventTap()
+
+        let eventMask = (1 << CGEventType.keyDown.rawValue)
+            | (1 << CGEventType.keyUp.rawValue)
+        let userData = Unmanaged.passUnretained(self).toOpaque()
+        guard let eventTap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .listenOnly,
+            eventsOfInterest: CGEventMask(eventMask),
+            callback: keyboardEventTapCallback,
+            userInfo: userData
+        ) else {
+            keyboardEventTapActive = false
+            keyboardEventTapNeedsAccessibility = !AXIsProcessTrusted()
+            requestAccessibilityPermissionIfNeeded()
+            return
+        }
+
+        guard let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0) else {
+            CFMachPortInvalidate(eventTap)
+            keyboardEventTapActive = false
+            keyboardEventTapNeedsAccessibility = false
+            return
+        }
+
+        keyboardEventTap = eventTap
+        keyboardEventTapSource = source
+        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
+        CGEvent.tapEnable(tap: eventTap, enable: true)
+        keyboardEventTapActive = true
+        keyboardEventTapNeedsAccessibility = false
+    }
+
+    private func stopKeyboardEventTap() {
+        keyboardEventTapActive = false
+        keyboardEventTapNeedsAccessibility = false
+        if let keyboardEventTapSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), keyboardEventTapSource, .commonModes)
+            self.keyboardEventTapSource = nil
+        }
+        if let keyboardEventTap {
+            CFMachPortInvalidate(keyboardEventTap)
+            self.keyboardEventTap = nil
+        }
+    }
+
+    private func requestAccessibilityPermissionIfNeeded() {
+        guard !accessibilityPromptShown,
+              ProcessInfo.processInfo.environment["DESKTOP_PONG_SUPPRESS_ACCESSIBILITY_PROMPT"] != "1",
+              !AXIsProcessTrusted() else { return }
+        accessibilityPromptShown = true
+        let promptKey = "AXTrustedCheckOptionPrompt"
+        AXIsProcessTrustedWithOptions([promptKey: true] as CFDictionary)
+    }
+
+    fileprivate func handleKeyboardEventTap(type: CGEventType, keyCode: UInt16) {
+        guard isCapturingInput, isGameKey(keyCode) else { return }
+        switch type {
+        case .keyDown:
+            pressedKeyCodes.insert(keyCode)
+        case .keyUp:
+            pressedKeyCodes.remove(keyCode)
+        default:
+            break
+        }
+    }
+
+    fileprivate func reenableKeyboardEventTap() {
+        guard isCapturingInput, let keyboardEventTap else { return }
+        CGEvent.tapEnable(tap: keyboardEventTap, enable: true)
+        keyboardEventTapActive = true
     }
 
     private func registerGameplayHotkeys() {
@@ -249,4 +357,23 @@ final class InputMonitor {
 
 private func inputMonitorFourCharCode(_ string: String) -> OSType {
     string.utf8.reduce(0) { ($0 << 8) + OSType($1) }
+}
+
+private let keyboardEventTapCallback: CGEventTapCallBack = { _, type, event, userData in
+    guard let userData else { return Unmanaged.passUnretained(event) }
+    let monitor = Unmanaged<InputMonitor>.fromOpaque(userData).takeUnretainedValue()
+    switch type {
+    case .keyDown, .keyUp:
+        let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
+        Task { @MainActor in
+            monitor.handleKeyboardEventTap(type: type, keyCode: keyCode)
+        }
+    case .tapDisabledByTimeout, .tapDisabledByUserInput:
+        Task { @MainActor in
+            monitor.reenableKeyboardEventTap()
+        }
+    default:
+        break
+    }
+    return Unmanaged.passUnretained(event)
 }

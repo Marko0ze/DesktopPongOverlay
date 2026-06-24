@@ -22,6 +22,8 @@ final class PongScene: SKScene {
     private let rightScore = SKLabelNode(fontNamed: "SFMono-Semibold")
     private let leftScoreShadow = SKLabelNode(fontNamed: "SFMono-Semibold")
     private let rightScoreShadow = SKLabelNode(fontNamed: "SFMono-Semibold")
+    private let inputStatusLabel = SKLabelNode(fontNamed: "SFMono-Regular")
+    private let inputStatusShadow = SKLabelNode(fontNamed: "SFMono-Regular")
 
     private var lastUpdateTime: TimeInterval?
     private var renderedImpactSequence = 0
@@ -138,7 +140,8 @@ final class PongScene: SKScene {
             leftPaddle, rightPaddle, ball,
             leftPaddleRim, rightPaddleRim, ballRim,
             leftPaddleSpecular, rightPaddleSpecular, ballSpecular,
-            leftScoreShadow, rightScoreShadow, leftScore, rightScore
+            leftScoreShadow, rightScoreShadow, leftScore, rightScore,
+            inputStatusShadow, inputStatusLabel
         ].forEach(addChild)
         centerLineShadow.zPosition = -0.1
         centerLine.zPosition = 0
@@ -155,10 +158,18 @@ final class PongScene: SKScene {
         rightScore.zPosition = 2
         leftScoreShadow.zPosition = 1.9
         rightScoreShadow.zPosition = 1.9
+        inputStatusShadow.zPosition = 3.9
+        inputStatusLabel.zPosition = 4
         [leftScore, rightScore, leftScoreShadow, rightScoreShadow].forEach {
             $0.horizontalAlignmentMode = .center
             $0.verticalAlignmentMode = .top
         }
+        [inputStatusShadow, inputStatusLabel].forEach {
+            $0.horizontalAlignmentMode = .left
+            $0.verticalAlignmentMode = .bottom
+            $0.fontSize = 13
+        }
+        inputStatusShadow.fontColor = NSColor.black.withAlphaComponent(0.52)
     }
 
     private func applySettings() {
@@ -349,6 +360,25 @@ final class PongScene: SKScene {
         rightScore.position = CGPoint(x: size.width / 2 + 48, y: size.height - 28)
         leftScoreShadow.position = CGPoint(x: leftScore.position.x + 1.5, y: leftScore.position.y - 1.5)
         rightScoreShadow.position = CGPoint(x: rightScore.position.x + 1.5, y: rightScore.position.y - 1.5)
+        renderInputStatus()
+    }
+
+    private func renderInputStatus() {
+        let settings = settingsStore.settings
+        let isVisible = inputMonitor.isCapturingInput
+        inputStatusLabel.isHidden = !isVisible
+        inputStatusShadow.isHidden = !isVisible
+        guard isVisible else { return }
+
+        let text = inputMonitor.captureStatusDescription(bindings: settings.controlBindings)
+        inputStatusLabel.text = text
+        inputStatusShadow.text = text
+        inputStatusLabel.fontColor = inputMonitor.keyboardEventTapNeedsAccessibility
+            ? NSColor.systemOrange.withAlphaComponent(0.95)
+            : settings.scoreColor.nsColor.withAlphaComponent(0.82)
+        let position = CGPoint(x: 22, y: 18)
+        inputStatusLabel.position = position
+        inputStatusShadow.position = CGPoint(x: position.x + 1, y: position.y - 1)
     }
 
     private func playImpactIfNeeded() {

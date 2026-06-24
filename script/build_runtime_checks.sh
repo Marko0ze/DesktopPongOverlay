@@ -58,6 +58,8 @@ cat >"$INFO_PLIST" <<PLIST
   <dict>
     <key>DESKTOP_PONG_RUNTIME_REPORT</key>
     <string>$REPORT_PATH</string>
+    <key>DESKTOP_PONG_SUPPRESS_ACCESSIBILITY_PROMPT</key>
+    <string>1</string>
   </dict>
 </dict>
 </plist>
