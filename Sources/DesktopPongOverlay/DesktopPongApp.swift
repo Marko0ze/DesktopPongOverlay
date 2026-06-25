@@ -24,11 +24,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var aboutController: AboutWindowController!
     private var statusMenuController: StatusMenuController!
     private var globalShortcutController: GlobalShortcutController!
+    private var registeredGlobalToggle = KeyBinding.p
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         settingsStore = SettingsStore()
         inputMonitor = InputMonitor()
-        haptics = HapticFeedbackController()
+        haptics = HapticFeedbackController(isEnabled: settingsStore.settings.hapticFeedbackEnabled)
         overlayController = OverlayWindowController(
             settingsStore: settingsStore,
             inputMonitor: inputMonitor,
@@ -51,7 +52,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         globalShortcutController = GlobalShortcutController { [weak statusMenuController] in
             statusMenuController?.toggleActiveSurface()
         }
-        globalShortcutController.register()
+        registeredGlobalToggle = settingsStore.settings.controlBindings.globalToggle
+        globalShortcutController.register(binding: registeredGlobalToggle)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(settingsDidChange),
+            name: SettingsStore.didChangeNotification,
+            object: settingsStore
+        )
         configureMainMenu()
         if settingsStore.settings.presentationMode == .desktopOverlay {
             overlayController.showOverlay()
@@ -60,6 +68,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
+    }
+
+    @objc private func settingsDidChange() {
+        haptics.isEnabled = settingsStore.settings.hapticFeedbackEnabled
+        let globalToggle = settingsStore.settings.controlBindings.globalToggle
+        guard globalToggle != registeredGlobalToggle else { return }
+        registeredGlobalToggle = globalToggle
+        globalShortcutController.register(binding: globalToggle)
     }
 
     private func configureMainMenu() {
@@ -95,8 +111,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return item
     }
 
-    @objc private func openSettings() { preferencesController.present() }
-    @objc private func openAbout() { aboutController.present() }
+    @objc private func openSettings() {
+        overlayController.setInputCapture(false)
+        preferencesController.present()
+    }
+
+    @objc private func openAbout() {
+        overlayController.setInputCapture(false)
+        aboutController.present()
+    }
     @objc private func toggleOverlay() { overlayController.toggleOverlay() }
     @objc private func toggleMenuBarGame() {
         let title = menuBarGameController.isShown ? "Close Menu Bar Game" : "Open Menu Bar Game"

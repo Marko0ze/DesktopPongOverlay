@@ -79,10 +79,16 @@ private func checkResizeAndSettingsClamping() {
     settings.ballSize = 1_000
     settings.aiSkill = -1
     settings.objectOpacity = 2
+    settings.glassEdgeIntensity = -1
+    settings.glassBlurRadius = 99
+    settings.glassTintOpacity = 2
     settings.clamp()
     expect(settings.ballSize == 36, "ball size should clamp to its maximum")
     expect(settings.aiSkill == 0, "AI skill should clamp to zero")
     expect(settings.objectOpacity == 1, "opacity should clamp to one")
+    expect(settings.glassEdgeIntensity == 0, "glass edge intensity should clamp to zero")
+    expect(settings.glassBlurRadius == 12, "glass blur radius should clamp to its maximum")
+    expect(settings.glassTintOpacity == 1, "glass tint opacity should clamp to one")
 }
 
 private func checkSpeedMapping() {
@@ -94,11 +100,21 @@ private func checkSpeedMapping() {
     expect(PongGameState.maximumBallSpeed(for: 1) == 1_600, "maximum speed cap should be 1600")
 }
 
+private func checkPlayableDefaults() {
+    expect(PongSettings.default.mode == .playerVsAI, "default mode should be playable with controls")
+    expect(PongSettings.default.controlBindings.leftUp == .upArrow, "default player-up control should be Up arrow")
+    expect(PongSettings.default.controlBindings.leftDown == .downArrow, "default player-down control should be Down arrow")
+}
+
 private func checkControlModes() {
     var settings = PongSettings.default
     let field = CGSize(width: 1_000, height: 700)
 
     settings.mode = .twoPlayer
+    settings.controlBindings.leftUp = KeyBinding(keyCode: 0, label: "A")
+    settings.controlBindings.leftDown = KeyBinding(keyCode: 2, label: "D")
+    settings.controlBindings.rightUp = KeyBinding(keyCode: 14, label: "E")
+    settings.controlBindings.rightDown = KeyBinding(keyCode: 15, label: "R")
     var twoPlayer = PongGameState(playfieldSize: field, settings: settings)
     let twoPlayerLeftStart = twoPlayer.leftPaddleY
     let twoPlayerRightStart = twoPlayer.rightPaddleY
@@ -108,10 +124,11 @@ private func checkControlModes() {
         settings: settings,
         randomUnit: { 0.5 }
     )
-    expect(twoPlayer.leftPaddleY > twoPlayerLeftStart, "W input should move the left paddle up")
-    expect(twoPlayer.rightPaddleY < twoPlayerRightStart, "Down input should move the right paddle down")
+    expect(twoPlayer.leftPaddleY > twoPlayerLeftStart, "remapped left-up input should move the left paddle up")
+    expect(twoPlayer.rightPaddleY < twoPlayerRightStart, "remapped right-down input should move the right paddle down")
 
     settings.mode = .playerVsAI
+    settings.controlBindings = .default
     var playerVsAI = PongGameState(playfieldSize: field, settings: settings)
     let playerStart = playerVsAI.leftPaddleY
     playerVsAI.update(
@@ -130,6 +147,35 @@ private func checkControlModes() {
         randomUnit: { 0.5 }
     )
     expect(playerVsAI.leftPaddleY < keyboardStart, "W/S keyboard input should override stale mouse position")
+
+    let arrowKeyStart = playerVsAI.leftPaddleY
+    playerVsAI.update(
+        deltaTime: 1.0 / 30.0,
+        input: InputSnapshot(rightAxis: 1),
+        settings: settings,
+        randomUnit: { 0.5 }
+    )
+    expect(playerVsAI.leftPaddleY > arrowKeyStart, "Up arrow input should move the player paddle in Player vs AI")
+
+    settings.playerControlMode = .mouseOnly
+    let mouseOnlyStart = playerVsAI.leftPaddleY
+    playerVsAI.update(
+        deltaTime: 1.0 / 30.0,
+        input: InputSnapshot(leftAxis: -1, mouseY: 650),
+        settings: settings,
+        randomUnit: { 0.5 }
+    )
+    expect(playerVsAI.leftPaddleY > mouseOnlyStart, "mouse-only control should ignore keyboard axis and follow mouse")
+
+    settings.playerControlMode = .keyboardOnly
+    let keyboardOnlyStart = playerVsAI.leftPaddleY
+    playerVsAI.update(
+        deltaTime: 1.0 / 30.0,
+        input: InputSnapshot(leftAxis: -1, mouseY: 650),
+        settings: settings,
+        randomUnit: { 0.5 }
+    )
+    expect(playerVsAI.leftPaddleY < keyboardOnlyStart, "keyboard-only control should ignore stale mouse position")
 
     settings.mode = .demo
     var demo = PongGameState(playfieldSize: field, settings: settings)
@@ -172,6 +218,39 @@ private func checkAIDifficultyChangesBehavior() {
     expect(hardReturns > easyReturns, "hard AI should return more representative shots than easy AI")
 }
 
+private func checkAIStableTargetMemory() {
+    var settings = PongSettings.default
+    settings.mode = .playerVsAI
+    settings.aiSkill = 0.15
+    settings.paddleHeight = 130
+
+    var state = PongGameState(playfieldSize: CGSize(width: 1_000, height: 700), settings: settings)
+    state.ballPosition = CGPoint(x: 500, y: 350)
+    state.ballVelocity = CGVector(dx: 420, dy: 0)
+
+    let randomValues = [1.0, 1.0, 0.0, 0.0]
+    var randomIndex = 0
+    var positions = [state.rightPaddleY]
+
+    for _ in 0 ..< 12 {
+        state.update(
+            deltaTime: 1.0 / 120.0,
+            input: InputSnapshot(),
+            settings: settings,
+            randomUnit: {
+                defer { randomIndex += 1 }
+                return randomValues[randomIndex % randomValues.count]
+            }
+        )
+        positions.append(state.rightPaddleY)
+    }
+
+    let deltas = zip(positions, positions.dropFirst()).map { $1 - $0 }
+    expect(positions.last! > positions.first!, "AI should move toward its stable target")
+    expect(deltas.allSatisfy { $0 >= -0.001 }, "AI should not reverse direction inside one target window")
+    expect(randomIndex == 2, "AI should only randomize once inside the short target window")
+}
+
 private func rightAIReturnsBall(skill: Double, verticalVelocity: CGFloat, randomUnit: Double) -> Bool {
     var settings = PongSettings.default
     settings.mode = .playerVsAI
@@ -204,15 +283,46 @@ private func checkSettingsPersistence() {
         firstStore.settings.mode = .twoPlayer
         firstStore.settings.aiSkill = 0.82
         firstStore.settings.materialStyle = .frosted
+        firstStore.settings.glassQuality = .balanced
+        firstStore.settings.paddleGlassFill = .transparent
+        firstStore.settings.glassEdgeIntensity = 0.23
+        firstStore.settings.glassBaseIntensity = 0.34
+        firstStore.settings.glassBlurRadius = 7.5
+        firstStore.settings.glassCenterWarpEnabled = false
+        firstStore.settings.hapticFeedbackEnabled = false
+        firstStore.settings.controlBindings.leftUp = KeyBinding(keyCode: 0, label: "A")
 
         let restoredStore = SettingsStore(defaults: defaults)
         expect(restoredStore.settings.mode == .twoPlayer, "game mode should survive relaunch")
         expect(restoredStore.settings.aiSkill == 0.82, "AI skill should survive relaunch")
         expect(restoredStore.settings.materialStyle == .frosted, "material style should survive relaunch")
+        expect(restoredStore.settings.glassQuality == .balanced, "glass quality should survive relaunch")
+        expect(restoredStore.settings.paddleGlassFill == .transparent, "transparent paddle fill should survive relaunch")
+        expect(restoredStore.settings.glassEdgeIntensity == 0.23, "glass edge intensity should survive relaunch")
+        expect(restoredStore.settings.glassBaseIntensity == 0.34, "glass base intensity should survive relaunch")
+        expect(restoredStore.settings.glassBlurRadius == 7.5, "glass blur radius should survive relaunch")
+        expect(!restoredStore.settings.glassCenterWarpEnabled, "glass centre warp toggle should survive relaunch")
+        expect(!restoredStore.settings.hapticFeedbackEnabled, "haptic feedback toggle should survive relaunch")
+        expect(restoredStore.settings.controlBindings.leftUp.keyCode == 0, "custom control binding should survive relaunch")
 
         restoredStore.resetToDefaults()
         expect(restoredStore.settings == .default, "Reset to Defaults should restore every setting")
+
+        var legacySettings = PongSettings.default
+        legacySettings.controlBindings = .legacyDefault
+        let legacyData = try! JSONEncoder().encode(legacySettings)
+        defaults.set(legacyData, forKey: "DesktopPongOverlay.settings.v2")
+
+        let migratedStore = SettingsStore(defaults: defaults)
+        expect(migratedStore.settings.controlBindings == .default, "legacy W/S-left defaults should migrate to arrow-key player defaults")
     }
+}
+
+private func checkControlBindingConflicts() {
+    var bindings = ControlBindings.default
+    expect(!bindings.hasDuplicateGameplayKeys, "default gameplay controls should be unique")
+    bindings.leftUp = bindings.leftDown
+    expect(bindings.hasDuplicateGameplayKeys, "duplicate gameplay controls should be detected")
 }
 
 checkLargeDeltaClamping()
@@ -221,7 +331,10 @@ checkScoring()
 checkSweptPaddleCollision()
 checkResizeAndSettingsClamping()
 checkSpeedMapping()
+checkPlayableDefaults()
 checkControlModes()
 checkAIDifficultyChangesBehavior()
+checkAIStableTargetMemory()
 checkSettingsPersistence()
+checkControlBindingConflicts()
 print("Core checks passed (\(checkCount) assertions)")

@@ -19,8 +19,9 @@ final class OverlayWindowController: NSWindowController {
         self.haptics = haptics
 
         let screen = NSScreen.main ?? NSScreen.screens[0]
+        let overlayFrame = Self.overlayFrame(for: screen)
         let panel = TransparentOverlayPanel(
-            contentRect: screen.frame,
+            contentRect: overlayFrame,
             styleMask: [.borderless],
             backing: .buffered,
             defer: false,
@@ -29,7 +30,7 @@ final class OverlayWindowController: NSWindowController {
         super.init(window: panel)
         configure(panel: panel, screen: screen)
 
-        let skView = SKView(frame: panel.contentView?.bounds ?? CGRect(origin: .zero, size: screen.frame.size))
+        let skView = SKView(frame: panel.contentView?.bounds ?? CGRect(origin: .zero, size: overlayFrame.size))
         skView.autoresizingMask = [.width, .height]
         skView.allowsTransparency = true
         skView.ignoresSiblingOrder = true
@@ -38,7 +39,7 @@ final class OverlayWindowController: NSWindowController {
         skView.layer?.backgroundColor = NSColor.clear.cgColor
 
         let scene = PongScene(size: skView.bounds.size, settingsStore: settingsStore, inputMonitor: inputMonitor)
-        scene.screenOriginY = screen.frame.minY
+        scene.screenOriginY = overlayFrame.minY
         scene.onImpact = { [weak haptics] in haptics?.impact() }
         skView.presentScene(scene)
         panel.contentView = skView
@@ -94,7 +95,18 @@ final class OverlayWindowController: NSWindowController {
     }
 
     func toggleInputCapture() {
-        settingsStore.settings.passThrough.toggle()
+        setInputCapture(settingsStore.settings.passThrough)
+    }
+
+    func setInputCapture(_ enabled: Bool) {
+        if enabled {
+            if settingsStore.settings.mode == .demo {
+                settingsStore.settings.mode = .playerVsAI
+            }
+            settingsStore.settings.passThrough = false
+        } else {
+            settingsStore.settings.passThrough = true
+        }
     }
 
     func runtimeSnapshot() -> OverlayRuntimeSnapshot {
@@ -112,10 +124,17 @@ final class OverlayWindowController: NSWindowController {
             ignoresMouseEvents: overlayPanel.ignoresMouseEvents,
             acceptsMouseMovedEvents: overlayPanel.acceptsMouseMovedEvents,
             acceptsGameInput: overlayPanel.acceptsGameInput,
+            frameOrigin: overlayPanel.frame.origin,
             frameSize: overlayPanel.frame.size,
             hasSpriteView: skView != nil,
             spriteViewAllowsTransparency: skView?.allowsTransparency ?? false,
-            inputMonitorCapturing: inputMonitor.isCapturingInput
+            inputMonitorCapturing: inputMonitor.isCapturingInput,
+            keyboardPollingActive: inputMonitor.keyboardPollingActive,
+            keyboardEventTapActive: inputMonitor.keyboardEventTapActive,
+            keyboardEventTapNeedsAccessibility: inputMonitor.keyboardEventTapNeedsAccessibility,
+            registeredGameplayHotkeyCount: inputMonitor.registeredGameplayHotkeyCount,
+            expectedGameplayHotkeyCount: inputMonitor.expectedGameplayHotkeyCount,
+            gameplayHotkeyFailureCount: inputMonitor.gameplayHotkeyFailureCount
         )
     }
 
@@ -129,7 +148,7 @@ final class OverlayWindowController: NSWindowController {
     }
 
     private func configure(panel: TransparentOverlayPanel, screen: NSScreen) {
-        panel.setFrame(screen.frame, display: true)
+        panel.setFrame(Self.overlayFrame(for: screen), display: true)
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = false
@@ -147,8 +166,8 @@ final class OverlayWindowController: NSWindowController {
     private func applyPassThroughSetting() {
         let capturesInput = !settingsStore.settings.passThrough
         overlayPanel.acceptsGameInput = capturesInput
-        overlayPanel.ignoresMouseEvents = !capturesInput
-        overlayPanel.acceptsMouseMovedEvents = capturesInput
+        overlayPanel.ignoresMouseEvents = true
+        overlayPanel.acceptsMouseMovedEvents = false
         inputMonitor.isCapturingInput = capturesInput
 
         if capturesInput {
@@ -168,10 +187,16 @@ final class OverlayWindowController: NSWindowController {
             hideOverlay()
             return
         }
-        overlayPanel.setFrame(screen.frame, display: true)
-        scene.screenOriginY = screen.frame.minY
-        scene.size = screen.frame.size
+        let overlayFrame = Self.overlayFrame(for: screen)
+        overlayPanel.setFrame(overlayFrame, display: true)
+        scene.screenOriginY = overlayFrame.minY
+        scene.size = overlayFrame.size
         scene.resetClock()
+    }
+
+    private static func overlayFrame(for screen: NSScreen) -> CGRect {
+        let frame = screen.visibleFrame
+        return frame.isEmpty ? screen.frame : frame
     }
 }
 
@@ -188,8 +213,15 @@ struct OverlayRuntimeSnapshot: Codable {
     let ignoresMouseEvents: Bool
     let acceptsMouseMovedEvents: Bool
     let acceptsGameInput: Bool
+    let frameOrigin: CGPoint
     let frameSize: CGSize
     let hasSpriteView: Bool
     let spriteViewAllowsTransparency: Bool
     let inputMonitorCapturing: Bool
+    let keyboardPollingActive: Bool
+    let keyboardEventTapActive: Bool
+    let keyboardEventTapNeedsAccessibility: Bool
+    let registeredGameplayHotkeyCount: Int
+    let expectedGameplayHotkeyCount: Int
+    let gameplayHotkeyFailureCount: Int
 }

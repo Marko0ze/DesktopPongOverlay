@@ -30,17 +30,31 @@ The staged app contains both arm64 and x86_64 slices.
 ## Controls
 
 - Demo mode: AI plays both paddles.
-- Player vs AI: choose **Capture Input**, then move the mouse or use W/S.
-- Two Player: choose **Capture Input**; W/S controls the left paddle and Up/Down controls the right.
+- Player vs AI: choose **Capture Input**, then use Up/Down arrows, W/S, remapped keyboard controls, or mouse.
+- Two Player: choose **Capture Input**; Player Paddle defaults to Up/Down arrows and Second Paddle defaults to W/S.
+- In Desktop Overlay mode, **Capture Input** keeps ordinary mouse clicks passing through to your Mac; opening Settings/About releases keyboard capture too.
+- While **Capture Input** is on, both held keys and quick taps move the paddle, and the configured gameplay keys are polled directly so they still work even though the overlay is click-through. If the status line never changes from "no key" while you hold ↑/↓, grant Accessibility access to Desktop Pong Overlay in System Settings, then toggle Capture Input off/on.
+- Settings → Controls lets you remap left paddle, right paddle, and the global toggle key.
 - Presentation: choose **Desktop Overlay** for full-screen transparent Pong, or **Menu Bar Game** for a compact popover game from the menu-bar icon.
-- Global shortcut: Option-Command-P toggles the active game surface from anywhere.
+- Global shortcut: Option-Command plus the configured global toggle key opens the active game surface from anywhere.
 - In Menu Bar Game mode, click the popover to pause/resume.
+- Settings → Presentation can disable haptic feedback for menu-bar clicks, pause/resume, resets, and paddle impacts.
 - Menu shortcuts: Command-H show/hide, Command-P pause/resume, Command-R reset, Command-I capture input, Command-, settings, Command-Q quit.
+
+## Appearance
+
+- Settings → Appearance controls Liquid Glass, Full Liquid Glass, Clear, and Frosted modes.
+- Full Liquid Glass uses native SpriteKit layers for whole-capsule lens paddles inspired by the cloned `dashersw/liquid-glass-js` reference, without text or copied assets.
+- Liquid Glass uses native SpriteKit layers for object-local depth, rim light, glow, and specular highlights; paddle inner specular bars are intentionally removed.
+- Advanced Liquid Glass Controls expose edge, rim, base, distance, corner, ripple, blur, tint, and centre-warp tuning in Settings while keeping the no-screen-recording rendering model.
+- Paddle Fill can be switched to **Transparent** to keep the paddle bodies clear while retaining coloured rim/glow/specular cues.
+- The app does not sample the desktop for live refraction, preserving the no-screen-recording privacy model.
+- Reference provenance is tracked in `docs/reference-provenance.md`; external repositories were used as inspiration only.
 
 ## Privacy
 
-The app does not record the screen, take screenshots, use the network, collect analytics, or install global input monitors. Keyboard and mouse events are read locally only while **Capture Input** is explicitly enabled.
-The global shortcut is registered with macOS as a hotkey; it does not inspect typed text.
+The app does not record the screen, take screenshots, use the network, collect analytics, or install always-on input monitors. While **Capture Input** is explicitly enabled, the app checks the configured gameplay key states, uses a temporary Accessibility keyboard tap as backup when available, and samples pointer position for mouse control.
+The gameplay keyboard paths and global shortcut do not inspect typed text beyond the configured controls.
 
 ## Packaging
 

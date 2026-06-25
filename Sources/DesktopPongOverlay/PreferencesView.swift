@@ -1,98 +1,324 @@
 import AppKit
 import SwiftUI
 
+private enum SettingsSection: String, CaseIterable, Identifiable {
+    case appearance
+    case controls
+    case gameplay
+    case presentation
+    case privacy
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .appearance: "Appearance"
+        case .controls: "Controls"
+        case .gameplay: "Gameplay"
+        case .presentation: "Presentation"
+        case .privacy: "Privacy"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .appearance: "sparkles"
+        case .controls: "keyboard"
+        case .gameplay: "gamecontroller"
+        case .presentation: "menubar.rectangle"
+        case .privacy: "hand.raised"
+        }
+    }
+}
+
 struct PreferencesView: View {
     @ObservedObject var store: SettingsStore
     let resetGame: () -> Void
+    @State private var selection: SettingsSection? = .appearance
+
+    init(store: SettingsStore, resetGame: @escaping () -> Void) {
+        self.store = store
+        self.resetGame = resetGame
+        _selection = State(initialValue: SettingsSection.previewDefault)
+    }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                SettingsPreviewView(settings: store.settings)
-
-                GroupBox("Appearance") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Material")
-                            .font(.subheadline.weight(.medium))
-                        MaterialStylePicker(selection: $store.settings.materialStyle)
-
-                        ColorPicker("Player Paddle", selection: colorBinding(\.playerPaddleColor))
-                        ColorPicker("AI Paddle", selection: colorBinding(\.aiPaddleColor))
-                        ColorPicker("Ball", selection: colorBinding(\.ballColor))
-                        ColorPicker("Score", selection: colorBinding(\.scoreColor))
-                        valueSlider("Object Opacity", value: $store.settings.objectOpacity, range: 0.2 ... 1, format: .percent)
-                        valueSlider("Glow", value: $store.settings.glowStrength, range: 0 ... 1, format: .percent)
+        HStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Settings")
+                    .font(.title2.weight(.semibold))
+                    .padding(.bottom, 8)
+                ForEach(SettingsSection.allCases) { section in
+                    Button {
+                        selection = section
+                    } label: {
+                        Label(section.title, systemImage: section.systemImage)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 8)
+                            .contentShape(Rectangle())
                     }
-                    .padding(.top, 6)
+                    .buttonStyle(.plain)
+                    .foregroundStyle((selection ?? .appearance) == section ? .primary : .secondary)
+                    .background {
+                        if (selection ?? .appearance) == section {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(Color.accentColor.opacity(0.18))
+                        }
+                    }
+                    .accessibilityValue((selection ?? .appearance) == section ? "Selected" : "Not selected")
                 }
+                Spacer()
+            }
+            .frame(width: 190)
+            .padding(18)
+            .background(.ultraThinMaterial)
 
-                GroupBox("Gameplay Feel") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Picker("Impact", selection: $store.settings.impactPreset) {
-                            ForEach(ImpactPreset.allCases, id: \.self) { preset in
-                                Text(preset.title).tag(preset)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        valueSlider("Paddle Roundness", value: $store.settings.paddleRoundness, range: 0 ... 1, format: .percent)
-                        valueSlider("Paddle Height", value: $store.settings.paddleHeight, range: 60 ... 240, format: .pixels)
-                        valueSlider("Paddle Width", value: $store.settings.paddleWidth, range: 8 ... 36, format: .pixels)
-                        valueSlider("Ball Size", value: $store.settings.ballSize, range: 8 ... 36, format: .pixels)
-                        valueSlider("Ball Speed", value: $store.settings.ballSpeed, range: 0 ... 1, format: .percent)
-                        Text("Ball speed applies on the next serve, then ramps gently after each paddle hit.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        valueSlider("AI Skill", value: $store.settings.aiSkill, range: 0 ... 1, format: .percent)
-                    }
-                    .padding(.top, 6)
+            Divider()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    SettingsPreviewView(settings: store.settings)
+                    detail(for: selection ?? .appearance)
                 }
+                .padding(24)
+            }
+        }
+        .frame(width: 760, height: 580)
+    }
 
-                GroupBox("Game") {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Picker("Mode", selection: $store.settings.mode) {
-                            ForEach(GameMode.allCases, id: \.self) { mode in
-                                Text(mode.title).tag(mode)
-                            }
-                        }
-                        Toggle("Left Paddle is AI", isOn: leftPaddleIsAIBinding)
-                        Toggle("Show Score", isOn: $store.settings.showScore)
-                        Toggle("Show Centre Line", isOn: $store.settings.showCenterLine)
-                        HStack {
-                            Button("Reset Score", action: resetGame)
-                            Spacer()
-                            Button("Reset to Defaults", action: store.resetToDefaults)
-                        }
-                    }
-                    .padding(.top, 6)
-                }
+    @ViewBuilder private func detail(for section: SettingsSection) -> some View {
+        switch section {
+        case .appearance:
+            appearanceSettings
+        case .controls:
+            controlsSettings
+        case .gameplay:
+            gameplaySettings
+        case .presentation:
+            presentationSettings
+        case .privacy:
+            privacySettings
+        }
+    }
 
-                DisclosureGroup("Advanced") {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Picker("Presentation", selection: $store.settings.presentationMode) {
-                            ForEach(PresentationMode.allCases, id: \.self) { mode in
-                                Text(mode.title).tag(mode)
-                            }
-                        }
-                        Text("Desktop Overlay floats over the screen. Menu Bar Game collapses Pong into the icon popover.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Toggle("Pass-through Overlay", isOn: $store.settings.passThrough)
-                        Text("When enabled, clicks go to the apps underneath the game.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        LabeledContent("Global Shortcut", value: GlobalShortcutController.shortcutDescription)
-                        Toggle("Reduced Motion", isOn: $store.settings.reducedMotion)
-                        Text("The system Reduce Motion setting is respected automatically too.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.top, 8)
+    private var appearanceSettings: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Liquid Glass")
+                .font(.title3.weight(.semibold))
+            Text("Object-local glass keeps the no-screen-recording privacy promise while giving the ball and paddles richer depth, rim light, glow, and specular highlights.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            MaterialStylePicker(selection: $store.settings.materialStyle)
+            Picker("Glass Quality", selection: $store.settings.glassQuality) {
+                ForEach(GlassQuality.allCases, id: \.self) { quality in
+                    Text(quality.title).tag(quality)
                 }
             }
-            .padding(20)
+            .pickerStyle(.segmented)
+            if store.settings.materialStyle.isLiquidGlass {
+                advancedLiquidGlassControls
+            }
+            ColorPicker("Player Paddle", selection: colorBinding(\.playerPaddleColor))
+            ColorPicker("AI Paddle", selection: colorBinding(\.aiPaddleColor))
+            Picker("Paddle Fill", selection: $store.settings.paddleGlassFill) {
+                ForEach(PaddleGlassFill.allCases, id: \.self) { fill in
+                    Text(fill.title).tag(fill)
+                }
+            }
+            .pickerStyle(.segmented)
+            Text("Transparent keeps the paddle body clear while the colour still drives the rim, glow, and impact highlight.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            ColorPicker("Ball", selection: colorBinding(\.ballColor))
+            ColorPicker("Score", selection: colorBinding(\.scoreColor))
+            valueSlider("Object Opacity", value: $store.settings.objectOpacity, range: 0.2 ... 1, format: .percent)
+            valueSlider("Glow", value: $store.settings.glowStrength, range: 0 ... 1, format: .percent)
+            valueSlider("Specular Highlight", value: $store.settings.glassSpecularIntensity, range: 0 ... 1, format: .percent)
+            valueSlider("Glass Depth", value: $store.settings.glassDepth, range: 0 ... 1, format: .percent)
         }
-        .frame(width: 500, height: 650)
-        .background(.background)
+        .settingsCard()
+    }
+
+    private var advancedLiquidGlassControls: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Liquid Glass Controls", systemImage: "slider.horizontal.3")
+                .font(.headline)
+            VStack(alignment: .leading, spacing: 12) {
+                valueSlider("Edge Intensity", value: $store.settings.glassEdgeIntensity, range: 0 ... 1, format: .decimal(2))
+                valueSlider("Rim Intensity", value: $store.settings.glassRimIntensity, range: 0 ... 1, format: .decimal(2))
+                valueSlider("Base Intensity", value: $store.settings.glassBaseIntensity, range: 0 ... 1, format: .decimal(2))
+                valueSlider("Edge Distance", value: $store.settings.glassEdgeDistance, range: 0 ... 1, format: .decimal(2))
+                valueSlider("Rim Distance", value: $store.settings.glassRimDistance, range: 0 ... 1, format: .decimal(2))
+                valueSlider("Base Distance", value: $store.settings.glassBaseDistance, range: 0 ... 1, format: .decimal(2))
+                valueSlider("Corner Boost", value: $store.settings.glassCornerBoost, range: 0 ... 1, format: .decimal(2))
+                valueSlider("Ripple Effect", value: $store.settings.glassRippleEffect, range: 0 ... 1, format: .decimal(2))
+                valueSlider("Blur Radius", value: $store.settings.glassBlurRadius, range: 0 ... 12, format: .decimal(1))
+                valueSlider("Tint Opacity", value: $store.settings.glassTintOpacity, range: 0 ... 1, format: .decimal(2))
+                Toggle("Enable Centre Warp", isOn: $store.settings.glassCenterWarpEnabled)
+                    .toggleStyle(.checkbox)
+                HStack {
+                    Spacer()
+                    Button("Reset Glass Controls") {
+                        let defaults = PongSettings.default
+                        store.settings.glassEdgeIntensity = defaults.glassEdgeIntensity
+                        store.settings.glassRimIntensity = defaults.glassRimIntensity
+                        store.settings.glassBaseIntensity = defaults.glassBaseIntensity
+                        store.settings.glassEdgeDistance = defaults.glassEdgeDistance
+                        store.settings.glassRimDistance = defaults.glassRimDistance
+                        store.settings.glassBaseDistance = defaults.glassBaseDistance
+                        store.settings.glassCornerBoost = defaults.glassCornerBoost
+                        store.settings.glassRippleEffect = defaults.glassRippleEffect
+                        store.settings.glassBlurRadius = defaults.glassBlurRadius
+                        store.settings.glassTintOpacity = defaults.glassTintOpacity
+                        store.settings.glassCenterWarpEnabled = defaults.glassCenterWarpEnabled
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .accessibilityLabel("Advanced Liquid Glass Controls")
+    }
+
+    private var controlsSettings: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Controls")
+                .font(.title3.weight(.semibold))
+            Picker("Player Control", selection: $store.settings.playerControlMode) {
+                ForEach(PlayerControlMode.allCases, id: \.self) { mode in
+                    Text(mode.title).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            KeyBindingRow(
+                title: "Player Paddle Up",
+                binding: $store.settings.controlBindings.leftUp,
+                reservedKeyCodes: Set([
+                    store.settings.controlBindings.leftDown.keyCode,
+                    store.settings.controlBindings.rightUp.keyCode,
+                    store.settings.controlBindings.rightDown.keyCode
+                ])
+            )
+            KeyBindingRow(
+                title: "Player Paddle Down",
+                binding: $store.settings.controlBindings.leftDown,
+                reservedKeyCodes: Set([
+                    store.settings.controlBindings.leftUp.keyCode,
+                    store.settings.controlBindings.rightUp.keyCode,
+                    store.settings.controlBindings.rightDown.keyCode
+                ])
+            )
+            Divider()
+            KeyBindingRow(
+                title: "Second Paddle Up",
+                binding: $store.settings.controlBindings.rightUp,
+                reservedKeyCodes: Set([
+                    store.settings.controlBindings.leftUp.keyCode,
+                    store.settings.controlBindings.leftDown.keyCode,
+                    store.settings.controlBindings.rightDown.keyCode
+                ])
+            )
+            KeyBindingRow(
+                title: "Second Paddle Down",
+                binding: $store.settings.controlBindings.rightDown,
+                reservedKeyCodes: Set([
+                    store.settings.controlBindings.leftUp.keyCode,
+                    store.settings.controlBindings.leftDown.keyCode,
+                    store.settings.controlBindings.rightUp.keyCode
+                ])
+            )
+            if store.settings.controlBindings.hasDuplicateGameplayKeys {
+                Label("Each gameplay action needs a unique key.", systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                    .font(.caption)
+            }
+            Divider()
+            KeyBindingRow(
+                title: "Global Toggle",
+                binding: $store.settings.controlBindings.globalToggle,
+                prefix: "⌥⌘"
+            )
+            HStack {
+                Spacer()
+                Button("Reset Controls") {
+                    store.settings.controlBindings = .default
+                    store.settings.playerControlMode = .keyboardAndMouse
+                }
+            }
+            Text("Player vs AI accepts W/S or Up/Down arrows by default. If the overlay never changes from “no key” while you hold ↑/↓, grant Accessibility access to Desktop Pong Overlay and toggle Capture Input off/on.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .settingsCard()
+    }
+
+    private var gameplaySettings: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Gameplay")
+                .font(.title3.weight(.semibold))
+            Picker("Mode", selection: $store.settings.mode) {
+                ForEach(GameMode.allCases, id: \.self) { mode in
+                    Text(mode.title).tag(mode)
+                }
+            }
+            Toggle("Left Paddle is AI", isOn: leftPaddleIsAIBinding)
+            Picker("Impact", selection: $store.settings.impactPreset) {
+                ForEach(ImpactPreset.allCases, id: \.self) { preset in
+                    Text(preset.title).tag(preset)
+                }
+            }
+            .pickerStyle(.segmented)
+            valueSlider("Paddle Roundness", value: $store.settings.paddleRoundness, range: 0 ... 1, format: .percent)
+            valueSlider("Paddle Height", value: $store.settings.paddleHeight, range: 60 ... 240, format: .pixels)
+            valueSlider("Paddle Width", value: $store.settings.paddleWidth, range: 8 ... 36, format: .pixels)
+            valueSlider("Ball Size", value: $store.settings.ballSize, range: 8 ... 36, format: .pixels)
+            valueSlider("Ball Speed", value: $store.settings.ballSpeed, range: 0 ... 1, format: .percent)
+            Text("Ball speed applies on the next serve, then ramps gently after each paddle hit.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            valueSlider("AI Skill", value: $store.settings.aiSkill, range: 0 ... 1, format: .percent)
+            HStack {
+                Button("Reset Score", action: resetGame)
+                Spacer()
+                Button("Reset All Settings", action: store.resetToDefaults)
+            }
+        }
+        .settingsCard()
+    }
+
+    private var presentationSettings: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Presentation")
+                .font(.title3.weight(.semibold))
+            Picker("Presentation", selection: $store.settings.presentationMode) {
+                ForEach(PresentationMode.allCases, id: \.self) { mode in
+                    Text(mode.title).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            Toggle("Pass-through Overlay", isOn: $store.settings.passThrough)
+            Toggle("Show Score", isOn: $store.settings.showScore)
+            Toggle("Show Centre Line", isOn: $store.settings.showCenterLine)
+            Toggle("Reduced Motion", isOn: $store.settings.reducedMotion)
+            Toggle("Haptic Feedback", isOn: $store.settings.hapticFeedbackEnabled)
+            Text("Desktop Overlay floats over the screen. Menu Bar Game collapses Pong into the icon popover.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .settingsCard()
+    }
+
+    private var privacySettings: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Privacy")
+                .font(.title3.weight(.semibold))
+            Label("No internet, analytics, accounts, or data collection.", systemImage: "network.slash")
+            Label("No screen recording or screenshots.", systemImage: "camera.viewfinder")
+            Label("No always-on key monitor; Capture Input checks configured gameplay keys and uses a filtered Accessibility tap as backup.", systemImage: "keyboard")
+            Label("Liquid Glass is simulated locally on the game objects, not by sampling your desktop.", systemImage: "sparkles")
+        }
+        .settingsCard()
     }
 
     private func colorBinding(_ keyPath: WritableKeyPath<PongSettings, RGBAColor>) -> Binding<Color> {
@@ -126,6 +352,88 @@ struct PreferencesView: View {
             Slider(value: value, in: range)
                 .accessibilityLabel(title)
         }
+    }
+}
+
+private extension SettingsSection {
+    static var previewDefault: SettingsSection {
+        guard let rawValue = ProcessInfo.processInfo.environment["DESKTOP_PONG_SETTINGS_SECTION"],
+              let section = SettingsSection(rawValue: rawValue) else {
+            return .appearance
+        }
+        return section
+    }
+}
+
+private struct SettingsCardModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
+private extension View {
+    func settingsCard() -> some View {
+        modifier(SettingsCardModifier())
+    }
+}
+
+private struct KeyBindingRow: View {
+    let title: String
+    @Binding var binding: KeyBinding
+    var prefix = ""
+    var reservedKeyCodes = Set<UInt16>()
+    @State private var isRecording = false
+    @State private var monitor: Any?
+    @State private var errorMessage: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(title)
+                Spacer()
+                Button(isRecording ? "Press a key…" : "\(prefix)\(binding.label)") {
+                    startRecording()
+                }
+                .keyboardShortcut(.defaultAction)
+                .monospaced()
+                .accessibilityLabel("\(title) key")
+                .accessibilityValue("\(prefix)\(binding.label)")
+            }
+            if let errorMessage {
+                Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+        }
+        .onDisappear(perform: stopRecording)
+    }
+
+    private func startRecording() {
+        stopRecording()
+        errorMessage = nil
+        isRecording = true
+        monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { event in
+            let candidate = KeyBinding(event: event)
+            if reservedKeyCodes.contains(candidate.keyCode) {
+                errorMessage = "\(candidate.label) is also assigned to another paddle action."
+            }
+            binding = candidate
+            DispatchQueue.main.async {
+                stopRecording()
+            }
+            return nil
+        }
+    }
+
+    private func stopRecording() {
+        if let monitor {
+            NSEvent.removeMonitor(monitor)
+        }
+        monitor = nil
+        isRecording = false
     }
 }
 
@@ -198,6 +506,7 @@ private struct MaterialSample: View {
     private var sampleFill: Color {
         switch style {
         case .glass: .cyan.opacity(0.58)
+        case .fullGlass: .white.opacity(0.18)
         case .clear: .cyan
         case .frosted: .cyan.opacity(0.70)
         }
@@ -207,6 +516,8 @@ private struct MaterialSample: View {
         switch style {
         case .glass:
             CircleOrCapsuleStroke(color: .white.opacity(0.82))
+        case .fullGlass:
+            CircleOrCapsuleStroke(color: .white.opacity(0.94), lineWidth: 1.5)
         case .clear:
             CircleOrCapsuleStroke(color: .clear)
         case .frosted:
@@ -215,28 +526,42 @@ private struct MaterialSample: View {
     }
 
     private var glowColor: Color {
-        style == .clear ? .clear : .cyan.opacity(style == .glass ? 0.48 : 0.24)
+        switch style {
+        case .clear: .clear
+        case .glass: .cyan.opacity(0.48)
+        case .fullGlass: .white.opacity(0.42)
+        case .frosted: .cyan.opacity(0.24)
+        }
     }
 
-    private var glowRadius: CGFloat { style == .glass ? 5 : 3 }
+    private var glowRadius: CGFloat {
+        switch style {
+        case .fullGlass: 6
+        case .glass: 5
+        default: 3
+        }
+    }
 }
 
 private struct CircleOrCapsuleStroke: View {
     let color: Color
+    var lineWidth: CGFloat = 1
 
     var body: some View {
-        Capsule().stroke(color, lineWidth: 1)
+        Capsule().stroke(color, lineWidth: lineWidth)
     }
 }
 
 private enum SliderValueFormat {
     case percent
     case pixels
+    case decimal(Int)
 
     func text(_ value: Double) -> String {
         switch self {
         case .percent: "\(Int((value * 100).rounded()))%"
         case .pixels: "\(Int(value.rounded())) px"
+        case .decimal(let places): String(format: "%.\(places)f", value)
         }
     }
 }
@@ -295,23 +620,50 @@ private struct SettingsPreviewView: View {
         RoundedRectangle(cornerRadius: previewPaddleWidth * settings.paddleRoundness / 2)
             .fill(paddleFill(color: color))
             .overlay {
-                if settings.materialStyle != .clear {
+                if settings.materialStyle != .clear || settings.paddleGlassFill == .transparent {
                     RoundedRectangle(cornerRadius: previewPaddleWidth * settings.paddleRoundness / 2)
                         .stroke(
-                            .white.opacity(settings.materialStyle == .glass ? 0.72 : 0.30),
-                            lineWidth: 1
+                            paddleStroke(color: color),
+                            lineWidth: settings.paddleGlassFill == .transparent ? 1.2 : 1
                         )
                 }
             }
-            .shadow(color: Color(nsColor: color).opacity(settings.glowStrength), radius: settings.glowStrength * 10)
+            .overlay(fullLensHighlight)
+            .shadow(
+                color: Color(nsColor: color).opacity(settings.glowStrength * (settings.paddleGlassFill == .transparent ? 1.18 : 1)),
+                radius: settings.glowStrength * (settings.glassBlurRadius + 6)
+            )
+    }
+
+    @ViewBuilder private var fullLensHighlight: some View {
+        if settings.materialStyle == .fullGlass && settings.glassQuality != .performance {
+            RoundedRectangle(cornerRadius: previewPaddleWidth * settings.paddleRoundness / 2)
+                .stroke(
+                    .white.opacity(settings.glassSpecularIntensity * (settings.glassCenterWarpEnabled ? 0.45 : 0.28)),
+                    lineWidth: 0.55 + settings.glassEdgeDistance * 0.9
+                )
+                .allowsHitTesting(false)
+        }
     }
 
     private func paddleFill(color: NSColor) -> Color {
         let base = Color(nsColor: color)
+        let fillScale = settings.paddleGlassFill.fillAlphaScale
+        let baseLevel = max(0.18, settings.glassBaseIntensity)
+        let tintLevel = 0.12 + settings.glassTintOpacity * 0.88
         return switch settings.materialStyle {
-        case .glass: base.opacity(settings.objectOpacity * 0.62)
-        case .clear: base.opacity(settings.objectOpacity)
-        case .frosted: base.opacity(settings.objectOpacity * 0.74)
+        case .glass: base.opacity(settings.objectOpacity * 0.62 * baseLevel * tintLevel * fillScale)
+        case .fullGlass: base.opacity(settings.objectOpacity * 0.24 * baseLevel * tintLevel * max(fillScale, 0.35))
+        case .clear: base.opacity(settings.objectOpacity * fillScale)
+        case .frosted: base.opacity(settings.objectOpacity * 0.74 * fillScale)
+        }
+    }
+
+    private func paddleStroke(color: NSColor) -> Color {
+        if settings.paddleGlassFill == .transparent {
+            Color(nsColor: color).opacity(settings.objectOpacity * 0.82)
+        } else {
+            .white.opacity(settings.materialStyle == .glass || settings.materialStyle == .fullGlass ? 0.32 + settings.glassEdgeIntensity * 0.50 : 0.30)
         }
     }
 

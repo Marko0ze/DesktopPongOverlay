@@ -15,6 +15,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     private let menuBarGameItem = NSMenuItem()
     private let pauseItem = NSMenuItem()
     private let captureItem = NSMenuItem()
+    private let globalShortcutItem = NSMenuItem()
     private var appliedPresentationMode: PresentationMode
     private var presentationItems: [PresentationMode: NSMenuItem] = [:]
     private var modeItems: [GameMode: NSMenuItem] = [:]
@@ -55,6 +56,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         menuBarGameItem.title = menuBarGameController.isShown ? "Close Menu Bar Game" : "Open Menu Bar Game"
         pauseItem.title = activeSceneIsPaused ? "Resume" : "Pause"
         captureItem.state = settingsStore.settings.passThrough ? .off : .on
+        globalShortcutItem.title = "Global Shortcut: \(GlobalShortcutController.shortcutDescription(for: settingsStore.settings.controlBindings.globalToggle))"
         presentationItems.forEach { mode, item in
             item.state = settingsStore.settings.presentationMode == mode ? .on : .off
         }
@@ -159,7 +161,9 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         menu.addItem(actionItem("Settings…", action: #selector(openPreferences), key: ","))
         menu.addItem(actionItem("About Desktop Pong Overlay", action: #selector(openAbout)))
         menu.addItem(.separator())
-        menu.addItem(actionItem("Global Shortcut: \(GlobalShortcutController.shortcutDescription)", action: nil))
+        globalShortcutItem.title = "Global Shortcut: \(GlobalShortcutController.shortcutDescription(for: settingsStore.settings.controlBindings.globalToggle))"
+        globalShortcutItem.isEnabled = false
+        menu.addItem(globalShortcutItem)
         menu.addItem(actionItem("Quit Desktop Pong Overlay", action: #selector(quit), key: "q"))
     }
 
@@ -225,7 +229,13 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     @objc private func toggleMenuBarGame() {
         guard settingsStore.settings.presentationMode == .menuBarGame else {
             settingsStore.settings.presentationMode = .menuBarGame
+            if settingsStore.settings.mode == .demo {
+                settingsStore.settings.mode = .playerVsAI
+            }
             return
+        }
+        if settingsStore.settings.mode == .demo {
+            settingsStore.settings.mode = .playerVsAI
         }
         overlayController.hideOverlay()
         guard let button = statusItem.button else { return }
@@ -248,8 +258,15 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     }
 
     @objc private func toggleCapture() { overlayController.toggleInputCapture() }
-    @objc private func openPreferences() { preferencesController.present() }
-    @objc private func openAbout() { aboutController.present() }
+    @objc private func openPreferences() {
+        overlayController.setInputCapture(false)
+        preferencesController.present()
+    }
+
+    @objc private func openAbout() {
+        overlayController.setInputCapture(false)
+        aboutController.present()
+    }
     @objc private func quit() { NSApp.terminate(nil) }
 
     @objc private func selectPresentation(_ sender: NSMenuItem) {
@@ -272,6 +289,9 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
             menuBarGameController.close()
             overlayController.showOverlay()
         case .menuBarGame:
+            if settingsStore.settings.mode == .demo {
+                settingsStore.settings.mode = .playerVsAI
+            }
             overlayController.hideOverlay()
             guard let button = statusItem.button else { return }
             menuBarGameController.show(relativeTo: button)
@@ -282,6 +302,10 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         guard let rawValue = sender.representedObject as? String,
               let mode = GameMode(rawValue: rawValue) else { return }
         settingsStore.settings.mode = mode
+        if mode != .demo, settingsStore.settings.presentationMode == .desktopOverlay {
+            overlayController.showOverlay()
+            settingsStore.settings.passThrough = false
+        }
     }
 
     @objc private func selectDifficulty(_ sender: NSMenuItem) {

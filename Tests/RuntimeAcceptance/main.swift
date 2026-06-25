@@ -40,6 +40,7 @@ private final class RuntimeAcceptanceDelegate: NSObject, NSApplicationDelegate {
     private var passThroughProbeController: PassThroughProbeWindowController!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.activate(ignoringOtherApps: true)
         let suiteName = "DesktopPongRuntimeAcceptance.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
@@ -113,6 +114,12 @@ private final class RuntimeAcceptanceDelegate: NSObject, NSApplicationDelegate {
         record("Space behavior", overlay.joinsAllSpaces && overlay.supportsFullScreen && overlay.ignoresWindowCycle, "allSpaces=\(overlay.joinsAllSpaces), fullScreen=\(overlay.supportsFullScreen)")
         record("pass-through default", overlay.ignoresMouseEvents && !overlay.acceptsGameInput && !overlay.inputMonitorCapturing, "ignoresMouse=\(overlay.ignoresMouseEvents)")
         record("transparent SpriteKit view", overlay.hasSpriteView && overlay.spriteViewAllowsTransparency, "hasSKView=\(overlay.hasSpriteView), transparent=\(overlay.spriteViewAllowsTransparency)")
+        let visibleFrame = (NSScreen.main ?? NSScreen.screens[0]).visibleFrame
+        record(
+            "overlay leaves menu bar accessible",
+            overlay.frameOrigin == visibleFrame.origin && overlay.frameSize == visibleFrame.size,
+            "origin=\(overlay.frameOrigin), size=\(overlay.frameSize), visible=\(visibleFrame)"
+        )
 
         let scene = overlayController.scene.runtimeSnapshot()
         record("transparent scene", scene.backgroundAlpha == 0, "alpha=\(scene.backgroundAlpha)")
@@ -163,12 +170,42 @@ private final class RuntimeAcceptanceDelegate: NSObject, NSApplicationDelegate {
         record("show overlay", overlayController.runtimeSnapshot().isVisible, "visible=\(overlayController.runtimeSnapshot().isVisible)")
         record("status menu show action", showActionSent, "sent=\(showActionSent)")
 
+        settingsStore.settings.mode = .demo
         let captureActionSent = statusMenuController.performRuntimeMenuAction(titled: "Capture Input")
         let captured = overlayController.runtimeSnapshot()
-        record("capture input", !captured.ignoresMouseEvents && captured.acceptsMouseMovedEvents && captured.acceptsGameInput && captured.inputMonitorCapturing, "capture=\(captured.inputMonitorCapturing)")
+        record(
+            "capture input",
+            captured.ignoresMouseEvents && !captured.acceptsMouseMovedEvents && captured.acceptsGameInput && captured.inputMonitorCapturing,
+            "ignoresMouse=\(captured.ignoresMouseEvents), capture=\(captured.inputMonitorCapturing)"
+        )
+        record("capture keeps desktop clickable", captured.ignoresMouseEvents, "ignoresMouse=\(captured.ignoresMouseEvents)")
+        record("capture enables playable controls", settingsStore.settings.mode == .playerVsAI, "mode=\(settingsStore.settings.mode.rawValue)")
+        record(
+            "capture reports keyboard path",
+            captured.keyboardPollingActive
+                || captured.keyboardEventTapActive
+                || captured.keyboardEventTapNeedsAccessibility
+                || captured.registeredGameplayHotkeyCount == captured.expectedGameplayHotkeyCount,
+            "polling=\(captured.keyboardPollingActive), eventTap=\(captured.keyboardEventTapActive), needsAccessibility=\(captured.keyboardEventTapNeedsAccessibility), registered=\(captured.registeredGameplayHotkeyCount)"
+        )
+        record(
+            "capture registers gameplay hotkeys",
+            captured.registeredGameplayHotkeyCount == captured.expectedGameplayHotkeyCount && captured.gameplayHotkeyFailureCount == 0,
+            "registered=\(captured.registeredGameplayHotkeyCount), expected=\(captured.expectedGameplayHotkeyCount), failures=\(captured.gameplayHotkeyFailureCount)"
+        )
         record("status menu capture action", captureActionSent, "sent=\(captureActionSent)")
         let passThroughActionSent = statusMenuController.performRuntimeMenuAction(titled: "Capture Input")
-        record("restore pass-through", overlayController.runtimeSnapshot().ignoresMouseEvents, "ignoresMouse=\(overlayController.runtimeSnapshot().ignoresMouseEvents)")
+        let restoredPassThrough = overlayController.runtimeSnapshot()
+        record("restore pass-through", restoredPassThrough.ignoresMouseEvents, "ignoresMouse=\(restoredPassThrough.ignoresMouseEvents)")
+        record(
+            "restore unregisters gameplay hotkeys",
+            !restoredPassThrough.keyboardEventTapActive
+                && !restoredPassThrough.keyboardPollingActive
+                && !restoredPassThrough.keyboardEventTapNeedsAccessibility
+                && restoredPassThrough.registeredGameplayHotkeyCount == 0
+                && restoredPassThrough.gameplayHotkeyFailureCount == 0,
+            "polling=\(restoredPassThrough.keyboardPollingActive), eventTap=\(restoredPassThrough.keyboardEventTapActive), needsAccessibility=\(restoredPassThrough.keyboardEventTapNeedsAccessibility), registered=\(restoredPassThrough.registeredGameplayHotkeyCount), failures=\(restoredPassThrough.gameplayHotkeyFailureCount)"
+        )
         record("status menu pass-through action", passThroughActionSent, "sent=\(passThroughActionSent)")
 
         let playerModeActionSent = statusMenuController.performRuntimeMenuAction(titled: "Player vs AI")
@@ -180,6 +217,8 @@ private final class RuntimeAcceptanceDelegate: NSObject, NSApplicationDelegate {
         let difficultyActionSent = statusMenuController.performRuntimeMenuAction(titled: "Original-ish")
         record("difficulty update", settingsStore.settings.aiSkill == 0.95, "skill=\(settingsStore.settings.aiSkill)")
         record("status menu difficulty action", difficultyActionSent, "sent=\(difficultyActionSent)")
+
+        runRemappedControlAndGlassChecks()
 
         let miniGameActionSent = statusMenuController.performRuntimeMenuAction(titled: "Open Menu Bar Game")
         let miniGame = menuBarGameController.runtimeSnapshot()
@@ -206,19 +245,122 @@ private final class RuntimeAcceptanceDelegate: NSObject, NSApplicationDelegate {
 
         NotificationCenter.default.post(name: NSApplication.didChangeScreenParametersNotification, object: nil)
         let displayNotificationSize = overlayController.scene.runtimeSnapshot().size
-        let expectedDisplaySize = (NSScreen.main ?? NSScreen.screens[0]).frame.size
+        let expectedDisplaySize = (NSScreen.main ?? NSScreen.screens[0]).visibleFrame.size
         record("display-change notification recovery", displayNotificationSize == expectedDisplaySize, "size=\(displayNotificationSize), expected=\(expectedDisplaySize)")
 
         runAuxiliaryWindowCycles()
         finishReport()
     }
 
+    private func runRemappedControlAndGlassChecks() {
+        settingsStore.settings.mode = .playerVsAI
+        settingsStore.settings.controlBindings = .default
+        inputMonitor.isCapturingInput = true
+        inputMonitor.updateControlBindings(settingsStore.settings.controlBindings)
+        record(
+            "default gameplay hotkeys registered",
+            inputMonitor.registeredGameplayHotkeyCount == inputMonitor.expectedGameplayHotkeyCount && inputMonitor.gameplayHotkeyFailureCount == 0,
+            "registered=\(inputMonitor.registeredGameplayHotkeyCount), expected=\(inputMonitor.expectedGameplayHotkeyCount), failures=\(inputMonitor.gameplayHotkeyFailureCount)"
+        )
+        let defaultArrowBefore = overlayController.scene.runtimeSnapshot()
+        let defaultArrowHandled = inputMonitor.applyRuntimeTestKeyEvent(type: .keyDown, keyCode: KeyBinding.upArrow.keyCode)
+        overlayController.scene.update(ProcessInfo.processInfo.systemUptime + 0.50)
+        overlayController.scene.update(ProcessInfo.processInfo.systemUptime + 0.55)
+        let defaultArrowReleased = inputMonitor.applyRuntimeTestKeyEvent(type: .keyUp, keyCode: KeyBinding.upArrow.keyCode)
+        let defaultArrowAfter = overlayController.scene.runtimeSnapshot()
+        record(
+            "default arrow key moves player paddle",
+            defaultArrowHandled && defaultArrowReleased && defaultArrowAfter.leftPaddleY > defaultArrowBefore.leftPaddleY,
+            "handled=\(defaultArrowHandled), released=\(defaultArrowReleased), before=\(defaultArrowBefore.leftPaddleY), after=\(defaultArrowAfter.leftPaddleY)"
+        )
+        let tapPulseBefore = overlayController.scene.runtimeSnapshot()
+        let tapDownHandled = inputMonitor.applyRuntimeTestKeyEvent(type: .keyDown, keyCode: KeyBinding.downArrow.keyCode)
+        let tapUpHandled = inputMonitor.applyRuntimeTestKeyEvent(type: .keyUp, keyCode: KeyBinding.downArrow.keyCode)
+        overlayController.scene.update(ProcessInfo.processInfo.systemUptime + 0.60)
+        overlayController.scene.update(ProcessInfo.processInfo.systemUptime + 0.65)
+        let tapPulseAfter = overlayController.scene.runtimeSnapshot()
+        record(
+            "arrow tap pulse moves player paddle",
+            tapDownHandled && tapUpHandled && tapPulseAfter.leftPaddleY < tapPulseBefore.leftPaddleY,
+            "down=\(tapDownHandled), up=\(tapUpHandled), before=\(tapPulseBefore.leftPaddleY), after=\(tapPulseAfter.leftPaddleY)"
+        )
+
+        settingsStore.settings.mode = .twoPlayer
+        settingsStore.settings.materialStyle = .glass
+        settingsStore.settings.glassQuality = .rich
+        settingsStore.settings.paddleGlassFill = .transparent
+        settingsStore.settings.controlBindings.leftUp = KeyBinding(keyCode: 0, label: "A")
+        settingsStore.settings.controlBindings.leftDown = KeyBinding(keyCode: 2, label: "D")
+        settingsStore.settings.controlBindings.rightUp = KeyBinding(keyCode: 14, label: "E")
+        settingsStore.settings.controlBindings.rightDown = KeyBinding(keyCode: 15, label: "R")
+
+        let before = overlayController.scene.runtimeSnapshot()
+        inputMonitor.isCapturingInput = true
+        inputMonitor.updateControlBindings(settingsStore.settings.controlBindings)
+        record(
+            "remapped gameplay hotkeys registered",
+            inputMonitor.registeredGameplayHotkeyCount == inputMonitor.expectedGameplayHotkeyCount && inputMonitor.gameplayHotkeyFailureCount == 0,
+            "registered=\(inputMonitor.registeredGameplayHotkeyCount), expected=\(inputMonitor.expectedGameplayHotkeyCount), failures=\(inputMonitor.gameplayHotkeyFailureCount)"
+        )
+        let leftKeyHandled = inputMonitor.applyRuntimeTestKeyEvent(type: .keyDown, keyCode: 0)
+        let rightKeyHandled = inputMonitor.applyRuntimeTestKeyEvent(type: .keyDown, keyCode: 15)
+        overlayController.scene.update(ProcessInfo.processInfo.systemUptime + 1.0)
+        overlayController.scene.update(ProcessInfo.processInfo.systemUptime + 1.05)
+        let leftKeyReleased = inputMonitor.applyRuntimeTestKeyEvent(type: .keyUp, keyCode: 0)
+        let rightKeyReleased = inputMonitor.applyRuntimeTestKeyEvent(type: .keyUp, keyCode: 15)
+        let after = overlayController.scene.runtimeSnapshot()
+
+        record(
+            "remapped key events accepted",
+            leftKeyHandled && rightKeyHandled && leftKeyReleased && rightKeyReleased,
+            "leftDown=\(leftKeyHandled), rightDown=\(rightKeyHandled), leftUp=\(leftKeyReleased), rightUp=\(rightKeyReleased)"
+        )
+
+        record(
+            "remapped controls move paddles",
+            after.leftPaddleY > before.leftPaddleY && after.rightPaddleY < before.rightPaddleY,
+            "leftBefore=\(before.leftPaddleY), leftAfter=\(after.leftPaddleY), rightBefore=\(before.rightPaddleY), rightAfter=\(after.rightPaddleY)"
+        )
+        record(
+            "rich liquid glass layers visible",
+            after.liquidGlassRimVisible && after.liquidGlassSpecularVisible,
+            "rim=\(after.liquidGlassRimVisible), specular=\(after.liquidGlassSpecularVisible)"
+        )
+        record(
+            "transparent paddle glass fill",
+            after.leftPaddleFillAlpha == 0 && after.rightPaddleFillAlpha == 0,
+            "leftAlpha=\(after.leftPaddleFillAlpha), rightAlpha=\(after.rightPaddleFillAlpha)"
+        )
+        record(
+            "paddle inner specular bars removed",
+            !after.leftPaddleSpecularVisible && !after.rightPaddleSpecularVisible,
+            "leftSpecular=\(after.leftPaddleSpecularVisible), rightSpecular=\(after.rightPaddleSpecularVisible)"
+        )
+
+        settingsStore.settings.materialStyle = .fullGlass
+        settingsStore.settings.paddleGlassFill = .tinted
+        overlayController.scene.update(ProcessInfo.processInfo.systemUptime + 1.10)
+        let fullGlass = overlayController.scene.runtimeSnapshot()
+        record(
+            "full liquid glass option renders lens paddles",
+            fullGlass.liquidGlassRimVisible
+                && fullGlass.liquidGlassSpecularVisible
+                && fullGlass.leftPaddleSpecularVisible
+                && fullGlass.rightPaddleSpecularVisible
+                && fullGlass.leftPaddleFillAlpha > 0,
+            "rim=\(fullGlass.liquidGlassRimVisible), specular=\(fullGlass.liquidGlassSpecularVisible), leftPaddleSpecular=\(fullGlass.leftPaddleSpecularVisible), rightPaddleSpecular=\(fullGlass.rightPaddleSpecularVisible), leftAlpha=\(fullGlass.leftPaddleFillAlpha)"
+        )
+    }
+
     private func runAuxiliaryWindowCycles() {
         var settingsCyclesPassed = true
         var aboutCyclesPassed = true
+        var settingsReleasedCapture = false
         for cycle in 0 ..< 3 {
             if cycle == 0 {
                 settingsCyclesPassed = statusMenuController.performRuntimeMenuAction(titled: "Settings…")
+                let overlay = overlayController.runtimeSnapshot()
+                settingsReleasedCapture = overlay.ignoresMouseEvents && !overlay.inputMonitorCapturing
             } else {
                 preferencesController.present()
             }
@@ -236,6 +378,7 @@ private final class RuntimeAcceptanceDelegate: NSObject, NSApplicationDelegate {
             aboutCyclesPassed = aboutCyclesPassed && (aboutController.window?.isVisible == false)
         }
         record("Settings open-close cycles", settingsCyclesPassed, "three cycles")
+        record("Settings releases overlay capture", settingsReleasedCapture, "released=\(settingsReleasedCapture)")
         record("About open-close cycles", aboutCyclesPassed, "three cycles")
         record("overlay survives auxiliary windows", overlayController.scene.view != nil && !overlayController.scene.isGamePaused, "scene attached and running")
     }
