@@ -257,6 +257,7 @@ struct PongSettings: Codable, Equatable, Sendable {
     var showCenterLine = true
     var passThrough = true
     var reducedMotion = false
+    var hapticFeedbackEnabled = true
 
     static let `default` = PongSettings()
 
@@ -303,6 +304,7 @@ struct PongSettings: Codable, Equatable, Sendable {
         showCenterLine = try container.decodeIfPresent(Bool.self, forKey: .showCenterLine) ?? defaults.showCenterLine
         passThrough = try container.decodeIfPresent(Bool.self, forKey: .passThrough) ?? defaults.passThrough
         reducedMotion = try container.decodeIfPresent(Bool.self, forKey: .reducedMotion) ?? defaults.reducedMotion
+        hapticFeedbackEnabled = try container.decodeIfPresent(Bool.self, forKey: .hapticFeedbackEnabled) ?? defaults.hapticFeedbackEnabled
     }
 
     mutating func clamp() {

@@ -29,7 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         settingsStore = SettingsStore()
         inputMonitor = InputMonitor()
-        haptics = HapticFeedbackController()
+        haptics = HapticFeedbackController(isEnabled: settingsStore.settings.hapticFeedbackEnabled)
         overlayController = OverlayWindowController(
             settingsStore: settingsStore,
             inputMonitor: inputMonitor,
@@ -71,6 +71,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func settingsDidChange() {
+        haptics.isEnabled = settingsStore.settings.hapticFeedbackEnabled
         let globalToggle = settingsStore.settings.controlBindings.globalToggle
         guard globalToggle != registeredGlobalToggle else { return }
         registeredGlobalToggle = globalToggle

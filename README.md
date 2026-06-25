@@ -38,6 +38,7 @@ The staged app contains both arm64 and x86_64 slices.
 - Presentation: choose **Desktop Overlay** for full-screen transparent Pong, or **Menu Bar Game** for a compact popover game from the menu-bar icon.
 - Global shortcut: Option-Command plus the configured global toggle key opens the active game surface from anywhere.
 - In Menu Bar Game mode, click the popover to pause/resume.
+- Settings → Presentation can disable haptic feedback for menu-bar clicks, pause/resume, resets, and paddle impacts.
 - Menu shortcuts: Command-H show/hide, Command-P pause/resume, Command-R reset, Command-I capture input, Command-, settings, Command-Q quit.
 
 ## Appearance

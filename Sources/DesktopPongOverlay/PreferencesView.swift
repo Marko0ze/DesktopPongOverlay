@@ -301,6 +301,7 @@ struct PreferencesView: View {
             Toggle("Show Score", isOn: $store.settings.showScore)
             Toggle("Show Centre Line", isOn: $store.settings.showCenterLine)
             Toggle("Reduced Motion", isOn: $store.settings.reducedMotion)
+            Toggle("Haptic Feedback", isOn: $store.settings.hapticFeedbackEnabled)
             Text("Desktop Overlay floats over the screen. Menu Bar Game collapses Pong into the icon popover.")
                 .font(.caption)
                 .foregroundStyle(.secondary)

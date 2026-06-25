@@ -289,6 +289,7 @@ private func checkSettingsPersistence() {
         firstStore.settings.glassBaseIntensity = 0.34
         firstStore.settings.glassBlurRadius = 7.5
         firstStore.settings.glassCenterWarpEnabled = false
+        firstStore.settings.hapticFeedbackEnabled = false
         firstStore.settings.controlBindings.leftUp = KeyBinding(keyCode: 0, label: "A")
 
         let restoredStore = SettingsStore(defaults: defaults)
@@ -301,6 +302,7 @@ private func checkSettingsPersistence() {
         expect(restoredStore.settings.glassBaseIntensity == 0.34, "glass base intensity should survive relaunch")
         expect(restoredStore.settings.glassBlurRadius == 7.5, "glass blur radius should survive relaunch")
         expect(!restoredStore.settings.glassCenterWarpEnabled, "glass centre warp toggle should survive relaunch")
+        expect(!restoredStore.settings.hapticFeedbackEnabled, "haptic feedback toggle should survive relaunch")
         expect(restoredStore.settings.controlBindings.leftUp.keyCode == 0, "custom control binding should survive relaunch")
 
         restoredStore.resetToDefaults()
